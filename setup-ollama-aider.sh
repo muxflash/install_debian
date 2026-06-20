@@ -30,8 +30,9 @@ pretty: true
 stream: true
 EOF
 
-echo "==> Ajout de ~/.local/bin au PATH dans .zshrc"
-if ! grep -q '.local/bin' ~/.zshrc; then
+echo "==> Activation du PATH dans .zshrc (décommentage de la ligne existante)"
+sed -i 's/^# export PATH=\$HOME\/bin:\$HOME\/.local\/bin/export PATH=$HOME\/bin:$HOME\/.local\/bin/' ~/.zshrc
+if ! grep -q 'export PATH.*\.local/bin' ~/.zshrc; then
     echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc
 fi
 
