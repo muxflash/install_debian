@@ -1,0 +1,10 @@
+[General]
+firstStart=false
+
+[Identity #0]
+Default Identity=true
+Email Address=laurent@billot.net
+Identity=Laurent Billot
+Name=Laurent Billot
+Transport=1
+Uid=1

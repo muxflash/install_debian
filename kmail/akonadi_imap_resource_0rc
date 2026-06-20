@@ -1,0 +1,15 @@
+[cache]
+retrieveMetadataOnFetch=true
+
+[network]
+authentication=0
+disconnectedModeEnabled=false
+imapPort=993
+imapServer=mail.billot.net
+safety=SSL
+subscriptionEnabled=true
+userName=laurent@billot.net
+
+[siever]
+managesieveSupported=false
+sievePort=4190

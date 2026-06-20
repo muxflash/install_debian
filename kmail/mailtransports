@@ -1,0 +1,13 @@
+[General]
+default-transport=1
+
+[Transport 1]
+authtype=0
+encryption=2
+host=mail.billot.net
+id=1
+name=Stalwart (mail.billot.net)
+port=465
+requiresAuthentication=true
+type=smtp
+userName=laurent@billot.net
