@@ -68,7 +68,9 @@ sudo apt update && sudo apt upgrade -y
 # -------------------------------------------------------------
 echo "━━━ [2/15] Paquets de base ━━━"
 sudo apt install -y \
-  git curl unzip wget \
+  git curl unzip wget zip rsync screen \
+  vim vlc \
+  plocate \
   zsh \
   yakuake btop fastfetch kdeconnect filelight lm-sensors \
   plasma-systemmonitor \
