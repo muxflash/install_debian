@@ -114,6 +114,9 @@ if grep -q '^ZSH_THEME=' "$ZSHRC"; then
   sed -i 's/^ZSH_THEME=.*/ZSH_THEME=""/' "$ZSHRC"
 fi
 
+# Décommente la ligne PATH ($HOME/.local/bin) si elle est commentée
+sed -i 's/^# export PATH=\$HOME\/bin:\$HOME\/.local\/bin/export PATH=$HOME\/bin:$HOME\/.local\/bin/' "$ZSHRC"
+
 # Plugins Oh My Zsh
 DESIRED_PLUGINS=(git sudo kubectl docker docker-compose history-substring-search colored-man-pages command-not-found)
 for p in "${DESIRED_PLUGINS[@]}"; do
@@ -243,7 +246,48 @@ if tailscale status 2>&1 | grep -q "Logged out" || ! tailscale status &>/dev/nul
 fi
 
 # -------------------------------------------------------------
-# 8. Playwright (screenshots headless)
+# 8b. Ollama + qwen3.6:35b + aider
+# -------------------------------------------------------------
+echo "━━━ [8b/15] Ollama + qwen3.6:35b + aider ━━━"
+
+if ! command -v ollama &>/dev/null; then
+  curl -fsSL https://ollama.com/install.sh | sh
+fi
+
+if ! ollama list 2>/dev/null | grep -q "qwen3.6:35b"; then
+  echo "==> Téléchargement qwen3.6:35b (~23 GB, peut prendre du temps)..."
+  ollama pull qwen3.6:35b
+fi
+
+if ! command -v uv &>/dev/null; then
+  curl -LsSf https://astral.sh/uv/install.sh | sh
+  export PATH="$HOME/.local/bin:$PATH"
+fi
+
+if ! command -v aider &>/dev/null; then
+  uv tool install aider-chat --python 3.12
+fi
+
+AIDER_CONF="$HOME/.aider.conf.yml"
+if [ ! -f "$AIDER_CONF" ]; then
+  cat > "$AIDER_CONF" << 'EOF'
+## Aider global configuration
+model: ollama/qwen3.6:35b
+openai-api-base: http://localhost:11434/v1
+openai-api-key: ollama
+
+show-model-warnings: false
+
+git: true
+gitignore: true
+
+pretty: true
+stream: true
+EOF
+fi
+
+# -------------------------------------------------------------
+# 8c. Playwright (screenshots headless)
 # -------------------------------------------------------------
 echo "━━━ [9/15] Playwright + Chromium ━━━"
 if [ ! -d "$VENV" ]; then
