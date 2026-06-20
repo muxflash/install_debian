@@ -27,15 +27,46 @@ echo "╚═══════════════════════�
 echo ""
 
 # -------------------------------------------------------------
-# 0. Mise à jour système
+# 0. Dépôts non-free + drivers NVIDIA + GRUB
 # -------------------------------------------------------------
-echo "━━━ [0/13] Mise à jour système ━━━"
+echo "━━━ [0/15] Dépôts non-free + NVIDIA + GRUB ━━━"
+
+# Activation des dépôts contrib non-free non-free-firmware
+SOURCES=/etc/apt/sources.list
+if ! grep -q "non-free-firmware" "$SOURCES"; then
+  echo "==> Activation de contrib non-free non-free-firmware dans $SOURCES..."
+  sudo sed -i 's/^\(deb .*debian\.org\/debian[^#]*main\)\(.*\)$/\1 contrib non-free non-free-firmware/' "$SOURCES"
+  sudo apt update
+fi
+
+# Paramètre GRUB : nvidia-drm.modeset=1 (requis pour KDE Wayland + NVIDIA)
+GRUB_FILE=/etc/default/grub
+if ! grep -q "nvidia-drm.modeset=1" "$GRUB_FILE"; then
+  echo "==> Ajout de nvidia-drm.modeset=1 dans GRUB_CMDLINE_LINUX_DEFAULT..."
+  sudo sed -i 's/^\(GRUB_CMDLINE_LINUX_DEFAULT="[^"]*\)"/\1 nvidia-drm.modeset=1"/' "$GRUB_FILE"
+  sudo update-grub
+else
+  echo "==> nvidia-drm.modeset=1 déjà présent dans GRUB, skip."
+fi
+
+# Installation des drivers NVIDIA non-free
+if ! dpkg -l nvidia-driver &>/dev/null; then
+  echo "==> Installation des drivers NVIDIA (nvidia-driver + firmware)..."
+  sudo apt install -y nvidia-driver firmware-nvidia-graphics
+else
+  echo "==> Drivers NVIDIA déjà installés ($(nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null || echo '?')), skip."
+fi
+
+# -------------------------------------------------------------
+# 1. Mise à jour système
+# -------------------------------------------------------------
+echo "━━━ [1/15] Mise à jour système ━━━"
 sudo apt update && sudo apt upgrade -y
 
 # -------------------------------------------------------------
 # 1. Paquets de base
 # -------------------------------------------------------------
-echo "━━━ [1/13] Paquets de base ━━━"
+echo "━━━ [2/15] Paquets de base ━━━"
 sudo apt install -y \
   git curl unzip wget \
   zsh \
@@ -63,7 +94,7 @@ fi
 # -------------------------------------------------------------
 # 2. zsh + Oh My Zsh + plugins
 # -------------------------------------------------------------
-echo "━━━ [2/13] zsh + Oh My Zsh ━━━"
+echo "━━━ [3/15] zsh + Oh My Zsh ━━━"
 
 if [ "$(basename "${SHELL:-bash}")" != "zsh" ]; then
   sudo chsh -s "$(which zsh)" "$USER"
@@ -129,7 +160,7 @@ fi
 # -------------------------------------------------------------
 # 3. Police JetBrainsMono Nerd Font
 # -------------------------------------------------------------
-echo "━━━ [3/13] JetBrainsMono Nerd Font ━━━"
+echo "━━━ [4/15] JetBrainsMono Nerd Font ━━━"
 FONT_DIR="$HOME/.local/share/fonts"
 mkdir -p "$FONT_DIR"
 if ! fc-list | grep -qi "JetBrainsMono Nerd Font"; then
@@ -143,7 +174,7 @@ fi
 # -------------------------------------------------------------
 # 4. Starship prompt
 # -------------------------------------------------------------
-echo "━━━ [4/13] Starship ━━━"
+echo "━━━ [5/15] Starship ━━━"
 if ! command -v starship &>/dev/null; then
   curl -sS https://starship.rs/install.sh | sh -s -- -y
 fi
@@ -153,7 +184,7 @@ grep -qxF 'eval "$(starship init zsh)"' "$ZSHRC" || \
 # -------------------------------------------------------------
 # 5. Thème Dracula Konsole/Yakuake
 # -------------------------------------------------------------
-echo "━━━ [5/13] Thème Dracula Konsole ━━━"
+echo "━━━ [6/15] Thème Dracula Konsole ━━━"
 mkdir -p "$HOME/.local/share/konsole"
 TMP_DRACULA=$(mktemp -d)
 git clone --depth 1 https://github.com/dracula/konsole.git "$TMP_DRACULA" -q
@@ -171,7 +202,7 @@ sudo sensors-detect --auto >/dev/null 2>&1 || true
 # -------------------------------------------------------------
 # 6. zoxide
 # -------------------------------------------------------------
-echo "━━━ [6/13] zoxide ━━━"
+echo "━━━ [7/15] zoxide ━━━"
 if ! command -v zoxide &>/dev/null; then
   curl -sSfL https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | bash
 fi
@@ -179,7 +210,7 @@ fi
 # -------------------------------------------------------------
 # 7. Flatpak + ZapZap (WhatsApp) + Claude Code + Tailscale
 # -------------------------------------------------------------
-echo "━━━ [7/13] Apps (ZapZap, Claude Code, Tailscale) ━━━"
+echo "━━━ [8/15] Apps (ZapZap, Claude Code, Tailscale) ━━━"
 
 flatpak remote-add --if-not-exists --user flathub https://flathub.org/repo/flathub.flatpakrepo
 flatpak install -y --user flathub com.rtosta.zapzap
@@ -212,7 +243,7 @@ fi
 # -------------------------------------------------------------
 # 8. Playwright (screenshots headless)
 # -------------------------------------------------------------
-echo "━━━ [8/13] Playwright + Chromium ━━━"
+echo "━━━ [9/15] Playwright + Chromium ━━━"
 if [ ! -d "$VENV" ]; then
   python3 -m venv "$VENV"
   "$VENV/bin/pip" install playwright
@@ -222,7 +253,7 @@ fi
 # -------------------------------------------------------------
 # 9. Claude Code settings (~/.claude/settings.json)
 # -------------------------------------------------------------
-echo "━━━ [9/13] Claude Code settings ━━━"
+echo "━━━ [10/15] Claude Code settings ━━━"
 mkdir -p "$HOME/.claude"
 CLAUDE_SETTINGS="$HOME/.claude/settings.json"
 
@@ -251,7 +282,7 @@ fi
 # -------------------------------------------------------------
 # 10. Dossier wallpaper + image
 # -------------------------------------------------------------
-echo "━━━ [10/13] Wallpaper ━━━"
+echo "━━━ [11/15] Wallpaper ━━━"
 mkdir -p "$WALLPAPER_DIR"
 if [ ! -f "$WALLPAPER_DIR/$WALLPAPER_IMAGE" ]; then
   curl -fLo "$WALLPAPER_DIR/$WALLPAPER_IMAGE" \
@@ -261,7 +292,7 @@ fi
 # -------------------------------------------------------------
 # 11. Git SSH + clone rancher
 # -------------------------------------------------------------
-echo "━━━ [11/13] Git + clone rancher ━━━"
+echo "━━━ [12/15] Git + clone rancher ━━━"
 mkdir -p "$HOME/.ssh"
 if [ ! -f "$HOME/.ssh/id_ed25519" ] && [ ! -f "$HOME/.ssh/id_rsa" ]; then
   ssh-keygen -t ed25519 -C "$(whoami)@$(hostname)" -f "$HOME/.ssh/id_ed25519" -N ""
@@ -287,7 +318,7 @@ fi
 # -------------------------------------------------------------
 # 12. Service systemd : Claude Code dans tmux au démarrage
 # -------------------------------------------------------------
-echo "━━━ [12/13] Service tmux Claude ━━━"
+echo "━━━ [13/15] Service tmux Claude ━━━"
 UNIT_DIR="$HOME/.config/systemd/user"
 UNIT_FILE="$UNIT_DIR/claude-tmux.service"
 mkdir -p "$UNIT_DIR"
@@ -323,7 +354,7 @@ EOF
 # -------------------------------------------------------------
 # 13. Fix veille NVIDIA + Wayland (NVreg_PreserveVideoMemoryAllocations)
 # -------------------------------------------------------------
-echo "━━━ [13/14] Fix veille NVIDIA Wayland ━━━"
+echo "━━━ [14/15] Fix veille NVIDIA Wayland ━━━"
 # Sans cette option le driver NVIDIA 550 ne préserve pas la VRAM pendant la
 # veille → au réveil kscreenlocker plante (nv_drm_revoke_modeset_permission),
 # l'écran clignote et nécessite un Ctrl+Alt+F2 pour récupérer la session.
@@ -347,7 +378,7 @@ fi
 # -------------------------------------------------------------
 # 14. KDE : icônes, panneaux, raccourcis, slideshow
 # -------------------------------------------------------------
-echo "━━━ [14/14] KDE layout + raccourcis + wallpaper slideshow ━━━"
+echo "━━━ [15/15] KDE layout + raccourcis + wallpaper slideshow ━━━"
 
 # Icônes Papirus-Dark
 PLASMA_CHANGEICONS=$(find /usr/lib /usr/libexec -iname "plasma-changeicons" 2>/dev/null | head -n1)
