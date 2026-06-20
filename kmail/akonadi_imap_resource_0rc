@@ -1,7 +1,10 @@
 [cache]
+TrashCollectionMigrated=true
 retrieveMetadataOnFetch=true
 
 [network]
+ImapServer=mail.billot.net
+UserName=laurent@billot.net
 authentication=0
 disconnectedModeEnabled=false
 imapPort=993
