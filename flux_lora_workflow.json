@@ -1,0 +1,26 @@
+{
+  "last_node_id": 12, "last_link_id": 12,
+  "nodes": [
+    {"id": 1, "type": "UNETLoader", "pos": [0, 0], "size": [315, 82], "order": 0, "mode": 0, "inputs": [], "outputs": [{"name": "MODEL", "type": "MODEL", "links": [1]}], "widgets_values": ["flux1-dev.safetensors", "fp8_e4m3fn"]},
+    {"id": 2, "type": "DualCLIPLoader", "pos": [0, 120], "size": [315, 106], "order": 1, "mode": 0, "inputs": [], "outputs": [{"name": "CLIP", "type": "CLIP", "links": [2, 3]}], "widgets_values": ["clip_l.safetensors", "t5xxl_fp8_e4m3fn.safetensors", "flux", "default"]},
+    {"id": 3, "type": "VAELoader", "pos": [0, 260], "size": [315, 58], "order": 2, "mode": 0, "inputs": [], "outputs": [{"name": "VAE", "type": "VAE", "links": [10]}], "widgets_values": ["ae.safetensors"]},
+    {"id": 12, "type": "LoraLoader", "pos": [360, 0], "size": [315, 130], "order": 3, "mode": 0, "inputs": [{"name": "model", "type": "MODEL", "link": 1}, {"name": "clip", "type": "CLIP", "link": 2}], "outputs": [{"name": "MODEL", "type": "MODEL", "links": [12]}, {"name": "CLIP", "type": "CLIP", "links": [11]}], "widgets_values": ["aidmaNSFWunlock-FLUX-V0.2.safetensors", 1.0, 1.0]},
+    {"id": 4, "type": "CLIPTextEncode", "pos": [720, 0], "size": [425, 180], "order": 4, "mode": 0, "inputs": [{"name": "clip", "type": "CLIP", "link": 11}], "outputs": [{"name": "CONDITIONING", "type": "CONDITIONING", "links": [4]}], "widgets_values": ["a majestic wolf in a snowy forest, cinematic lighting, photorealistic, 8k"]},
+    {"id": 5, "type": "CLIPTextEncode", "pos": [720, 220], "size": [425, 130], "order": 5, "mode": 0, "inputs": [{"name": "clip", "type": "CLIP", "link": 3}], "outputs": [{"name": "CONDITIONING", "type": "CONDITIONING", "links": [5]}], "widgets_values": [""]},
+    {"id": 6, "type": "EmptyLatentImage", "pos": [720, 380], "size": [315, 106], "order": 6, "mode": 0, "inputs": [], "outputs": [{"name": "LATENT", "type": "LATENT", "links": [6]}], "widgets_values": [1024, 1024, 1]},
+    {"id": 7, "type": "FluxGuidance", "pos": [1180, 0], "size": [315, 58], "order": 7, "mode": 0, "inputs": [{"name": "conditioning", "type": "CONDITIONING", "link": 4}], "outputs": [{"name": "CONDITIONING", "type": "CONDITIONING", "links": [7]}], "widgets_values": [3.5]},
+    {"id": 8, "type": "ModelSamplingFlux", "pos": [1180, 100], "size": [315, 106], "order": 8, "mode": 0, "inputs": [{"name": "model", "type": "MODEL", "link": 12}], "outputs": [{"name": "MODEL", "type": "MODEL", "links": [8]}], "widgets_values": [1.15, 0.5, 1024, 1024]},
+    {"id": 9, "type": "KSampler", "pos": [1535, 0], "size": [315, 262], "order": 9, "mode": 0, "inputs": [{"name": "model", "type": "MODEL", "link": 8}, {"name": "positive", "type": "CONDITIONING", "link": 7}, {"name": "negative", "type": "CONDITIONING", "link": 5}, {"name": "latent_image", "type": "LATENT", "link": 6}], "outputs": [{"name": "LATENT", "type": "LATENT", "links": [9]}], "widgets_values": [42, "fixed", 20, 1.0, "euler", "simple", 1.0]},
+    {"id": 10, "type": "VAEDecode", "pos": [1890, 0], "size": [210, 46], "order": 10, "mode": 0, "inputs": [{"name": "samples", "type": "LATENT", "link": 9}, {"name": "vae", "type": "VAE", "link": 10}], "outputs": [{"name": "IMAGE", "type": "IMAGE", "links": [11]}]},
+    {"id": 11, "type": "SaveImage", "pos": [1890, 80], "size": [420, 60], "order": 11, "mode": 0, "inputs": [{"name": "images", "type": "IMAGE", "link": 11}], "outputs": [], "widgets_values": ["flux_lora"]}
+  ],
+  "links": [
+    [1, 1, 0, 12, 0, "MODEL"], [2, 2, 0, 12, 1, "CLIP"], [3, 2, 0, 5, 0, "CLIP"],
+    [4, 4, 0, 7, 0, "CONDITIONING"], [5, 5, 0, 9, 2, "CONDITIONING"],
+    [6, 6, 0, 9, 3, "LATENT"], [7, 7, 0, 9, 1, "CONDITIONING"],
+    [8, 8, 0, 9, 0, "MODEL"], [9, 9, 0, 10, 0, "LATENT"],
+    [10, 3, 0, 10, 1, "VAE"], [11, 10, 0, 11, 0, "IMAGE"],
+    [12, 12, 0, 8, 0, "MODEL"], [11, 12, 1, 4, 0, "CLIP"]
+  ],
+  "groups": [], "config": {}, "extra": {}, "version": 0.4
+}

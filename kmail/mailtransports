@@ -2,12 +2,13 @@
 default-transport=1
 
 [Transport 1]
-authtype=0
+authtype=1
 encryption=2
 host=192.168.0.48
 id=1
 name=Stalwart local (192.168.0.48:465)
 port=465
 requiresAuthentication=true
+storepass=true
 type=smtp
 userName=laurent@billot.net
