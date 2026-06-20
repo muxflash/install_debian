@@ -286,6 +286,20 @@ stream: true
 EOF
 fi
 
+if ! command -v goose &>/dev/null; then
+  curl -fsSL https://github.com/block/goose/releases/latest/download/download_cli.sh | bash
+fi
+
+GOOSE_CONF="$HOME/.config/goose/config.yaml"
+if [ ! -f "$GOOSE_CONF" ]; then
+  mkdir -p "$HOME/.config/goose"
+  cat > "$GOOSE_CONF" << 'EOF'
+GOOSE_PROVIDER: ollama
+GOOSE_MODEL: qwen3.6:35b
+OLLAMA_CONTEXT_LENGTH: "32768"
+EOF
+fi
+
 # -------------------------------------------------------------
 # 8c. Playwright (screenshots headless)
 # -------------------------------------------------------------
