@@ -2,6 +2,9 @@
 TrashCollectionMigrated=true
 retrieveMetadataOnFetch=true
 
+[idle]
+IdleRidPath=/INBOX,imap://laurent@billot.net@mail.billot.net/
+
 [network]
 ImapServer=mail.billot.net
 UserName=laurent@billot.net
