@@ -530,6 +530,27 @@ dbus-send --session --print-reply --dest=org.kde.plasmashell --type=method_call 
 
 rm -f "$SLIDE_JS"
 
+# -------------------------------------------------------------
+# 15. KMail — compte laurent@billot.net (Stalwart)
+# -------------------------------------------------------------
+echo "━━━ [16/16] KMail config (laurent@billot.net) ━━━"
+KMAIL_SRC="$REPO_DIR/muxpc/kmail"
+
+cp "$KMAIL_SRC/akonadi_imap_resource_0rc" "$HOME/.config/akonadi_imap_resource_0rc"
+cp "$KMAIL_SRC/mailtransports"            "$HOME/.config/mailtransports"
+
+# kmail2rc : copie seulement si absent (pour ne pas écraser une config existante)
+if [ ! -f "$HOME/.config/kmail2rc" ]; then
+  cp "$KMAIL_SRC/kmail2rc" "$HOME/.config/kmail2rc"
+fi
+
+# Enregistre la ressource IMAP dans Akonadi si pas déjà présente
+AGENTSRC="$HOME/.config/akonadi/agentsrc"
+if [ -f "$AGENTSRC" ] && ! grep -q "akonadi_imap_resource_0" "$AGENTSRC"; then
+  sed -i 's/akonadi_imap_resource\\InstanceCounter=0/akonadi_imap_resource\\InstanceCounter=1/' "$AGENTSRC"
+  sed -i '/akonadi_indexing_agent\\AgentType/i akonadi_imap_resource_0\\AgentType=akonadi_imap_resource' "$AGENTSRC"
+fi
+
 # =============================================================
 echo ""
 echo "╔══════════════════════════════════════════════════════════╗"
