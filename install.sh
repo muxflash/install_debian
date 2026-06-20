@@ -321,9 +321,33 @@ NoDisplay=true
 EOF
 
 # -------------------------------------------------------------
-# 13. KDE : icônes, panneaux, raccourcis, slideshow
+# 13. Fix veille NVIDIA + Wayland (NVreg_PreserveVideoMemoryAllocations)
 # -------------------------------------------------------------
-echo "━━━ [13/13] KDE layout + raccourcis + wallpaper slideshow ━━━"
+echo "━━━ [13/14] Fix veille NVIDIA Wayland ━━━"
+# Sans cette option le driver NVIDIA 550 ne préserve pas la VRAM pendant la
+# veille → au réveil kscreenlocker plante (nv_drm_revoke_modeset_permission),
+# l'écran clignote et nécessite un Ctrl+Alt+F2 pour récupérer la session.
+NVIDIA_OPTS=/etc/modprobe.d/nvidia-options.conf
+if [ -f "$NVIDIA_OPTS" ]; then
+  if grep -q "^#options nvidia-current NVreg_PreserveVideoMemoryAllocations=1" "$NVIDIA_OPTS"; then
+    sudo sed -i 's/^#options nvidia-current NVreg_PreserveVideoMemoryAllocations=1/options nvidia-current NVreg_PreserveVideoMemoryAllocations=1/' "$NVIDIA_OPTS"
+    echo "==> Option activée dans $NVIDIA_OPTS"
+    sudo update-initramfs -u
+  elif grep -q "^options nvidia-current NVreg_PreserveVideoMemoryAllocations=1" "$NVIDIA_OPTS"; then
+    echo "==> NVreg_PreserveVideoMemoryAllocations déjà activé, skip."
+  else
+    echo "options nvidia-current NVreg_PreserveVideoMemoryAllocations=1" | sudo tee -a "$NVIDIA_OPTS" >/dev/null
+    sudo update-initramfs -u
+  fi
+  sudo systemctl enable nvidia-suspend nvidia-resume nvidia-hibernate 2>/dev/null || true
+else
+  echo "==> Pas de GPU NVIDIA détecté, skip."
+fi
+
+# -------------------------------------------------------------
+# 14. KDE : icônes, panneaux, raccourcis, slideshow
+# -------------------------------------------------------------
+echo "━━━ [14/14] KDE layout + raccourcis + wallpaper slideshow ━━━"
 
 # Icônes Papirus-Dark
 PLASMA_CHANGEICONS=$(find /usr/lib /usr/libexec -iname "plasma-changeicons" 2>/dev/null | head -n1)
@@ -418,7 +442,7 @@ rm -f "$SLIDE_JS"
 # =============================================================
 echo ""
 echo "╔══════════════════════════════════════════════════════════╗"
-echo "║  ✅  Installation terminée !                             ║"
+echo "║  ✅  Installation terminée !  (redémarrage requis)       ║"
 echo "╚══════════════════════════════════════════════════════════╝"
 echo ""
 echo "🔑 Première utilisation Claude Code : 'claude' dans le terminal"
