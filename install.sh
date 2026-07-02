@@ -5,6 +5,7 @@
 # Idempotent : peut être relancé sans dupliquer quoi que ce soit
 # =============================================================
 set -euo pipefail
+export DEBIAN_FRONTEND=noninteractive   # évite les prompts dpkg/apt en mode non-interactif
 
 GITHUB_RAW="https://raw.githubusercontent.com/muxflash/rancher/muxpc/muxpc"
 WALLPAPER_IMAGE="wallpaperswide.com-assassins-creed-unity-arno-wallpaper-5120x1440.jpg"
@@ -66,29 +67,37 @@ echo ""
 echo "━━━ [0/15] Dépôts non-free + NVIDIA + GRUB ━━━"
 
 # Activation des dépôts contrib non-free non-free-firmware
-SOURCES=/etc/apt/sources.list
-if ! grep -q "non-free-firmware" "$SOURCES"; then
-  echo "==> Activation de contrib non-free non-free-firmware dans $SOURCES..."
-  sudo sed -i 's/^\(deb .*debian\.org\/debian[^#]*main\)\(.*\)$/\1 contrib non-free non-free-firmware/' "$SOURCES"
-  sudo apt update
+# Debian 12 cloud image : format DEB822 dans /etc/apt/sources.list.d/debian.sources
+_SOURCES_DEB822="/etc/apt/sources.list.d/debian.sources"
+_SOURCES_CLASSIC="/etc/apt/sources.list"
+if [ -f "$_SOURCES_DEB822" ] && ! grep -q "non-free" "$_SOURCES_DEB822"; then
+  echo "==> Activation non-free (DEB822) dans $_SOURCES_DEB822..."
+  sudo sed -i 's/^Components: main$/Components: main contrib non-free non-free-firmware/' "$_SOURCES_DEB822"
+  sudo apt update -q
+elif [ -f "$_SOURCES_CLASSIC" ] && ! grep -q "non-free-firmware" "$_SOURCES_CLASSIC"; then
+  echo "==> Activation non-free (classique) dans $_SOURCES_CLASSIC..."
+  sudo sed -i 's/^\(deb .*debian\.org\/debian[^#]*main\)\(.*\)$/\1 contrib non-free non-free-firmware/' "$_SOURCES_CLASSIC"
+  sudo apt update -q
+else
+  echo "==> Dépôts non-free déjà configurés, skip."
 fi
 
-# Paramètre GRUB : nvidia-drm.modeset=1 (requis pour KDE Wayland + NVIDIA)
-GRUB_FILE=/etc/default/grub
-if ! grep -q "nvidia-drm.modeset=1" "$GRUB_FILE"; then
-  echo "==> Ajout de nvidia-drm.modeset=1 dans GRUB_CMDLINE_LINUX_DEFAULT..."
-  sudo sed -i 's/^\(GRUB_CMDLINE_LINUX_DEFAULT="[^"]*\)"/\1 nvidia-drm.modeset=1"/' "$GRUB_FILE"
-  sudo update-grub
+# GRUB + NVIDIA : seulement si GPU NVIDIA physique détecté
+if lspci 2>/dev/null | grep -iq nvidia; then
+  GRUB_FILE=/etc/default/grub
+  if ! grep -q "nvidia-drm.modeset=1" "$GRUB_FILE"; then
+    echo "==> Ajout de nvidia-drm.modeset=1 dans GRUB_CMDLINE_LINUX_DEFAULT..."
+    sudo sed -i 's/^\(GRUB_CMDLINE_LINUX_DEFAULT="[^"]*\)"/\1 nvidia-drm.modeset=1"/' "$GRUB_FILE"
+    sudo update-grub
+  fi
+  if ! dpkg -l nvidia-driver &>/dev/null; then
+    echo "==> Installation des drivers NVIDIA (nvidia-driver + firmware)..."
+    sudo apt install -y nvidia-driver firmware-nvidia-graphics
+  else
+    echo "==> Drivers NVIDIA déjà installés ($(nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null || echo '?')), skip."
+  fi
 else
-  echo "==> nvidia-drm.modeset=1 déjà présent dans GRUB, skip."
-fi
-
-# Installation des drivers NVIDIA non-free
-if ! dpkg -l nvidia-driver &>/dev/null; then
-  echo "==> Installation des drivers NVIDIA (nvidia-driver + firmware)..."
-  sudo apt install -y nvidia-driver firmware-nvidia-graphics
-else
-  echo "==> Drivers NVIDIA déjà installés ($(nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null || echo '?')), skip."
+  echo "==> Pas de GPU NVIDIA détecté, skip drivers + GRUB param."
 fi
 
 # -------------------------------------------------------------
@@ -105,7 +114,7 @@ sudo apt install -y \
   git curl unzip wget zip rsync screen vim vlc plocate \
   zsh zsh-autosuggestions zsh-syntax-highlighting fzf \
   flatpak python3-pip python3-venv tmux \
-  lm-sensors btop fastfetch papirus-icon-theme
+  lm-sensors btop papirus-icon-theme
 
 case "$DE" in
   kde)
@@ -114,7 +123,8 @@ case "$DE" in
   gnome)
     sudo apt install -y \
       gnome-tweaks gnome-shell-extension-manager tilix \
-      dconf-editor chrome-gnome-shell ;;
+      dconf-editor chrome-gnome-shell || \
+      { sudo dpkg --configure -a 2>/dev/null || true; } ;;
 esac
 
 # fastfetch fallback (vieille version Debian)

@@ -11,7 +11,7 @@ timezone: Europe/Paris
 users:
   - name: muxflash
     gecos: muxflash
-    groups: sudo,audio,video,plugdev,netdev
+    groups: sudo,audio,video,plugdev
     shell: /bin/bash
     sudo: ALL=(ALL) NOPASSWD:ALL
     lock_passwd: false
