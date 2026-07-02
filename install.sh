@@ -153,7 +153,13 @@ alias gs='git status'
 alias gp='git pull'
 alias gc='git commit -m'
 alias cc=claude
-alias ia='interpreter --model ollama/qwen3.6:35b -y'
+ia() {
+  local model
+  model=$(ollama list 2>/dev/null | awk '/^qwen/{print $1}' | sort -V | tail -1)
+  model="${model:-qwen3.6:35b}"
+  echo "==> open-interpreter avec $model"
+  interpreter --model "ollama/$model" -y "$@"
+}
 
 command -v fastfetch &>/dev/null && fastfetch
 
