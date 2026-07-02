@@ -1,0 +1,44 @@
+#cloud-config
+# =============================================================
+# user-data par défaut pour le TEMPLATE (utilisé par proxmox-create-template.sh)
+# Pour les VMs clonées, proxmox-deploy-vm.sh génère un user-data personnalisé
+# avec les variables MUXPC_DE / MUXPC_QWEN / MUXPC_OI injectées.
+# =============================================================
+hostname: muxpc
+locale: fr_FR.UTF-8
+timezone: Europe/Paris
+
+users:
+  - name: muxflash
+    gecos: muxflash
+    groups: sudo,audio,video,plugdev,netdev
+    shell: /bin/bash
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    lock_passwd: false
+    # Ajouter ta clé SSH publique ici pour accès sans mot de passe :
+    ssh_authorized_keys:
+      - ssh-ed25519 AAAA__REMPLACER_PAR_TA_CLE_PUBLIQUE__ muxflash@muxpc
+
+package_update: true
+package_upgrade: true
+packages:
+  - git
+  - curl
+  - qemu-guest-agent
+
+runcmd:
+  - systemctl enable --now qemu-guest-agent
+  - |
+    sudo -u muxflash bash -c '
+      export MUXPC_DE="gnome"
+      export MUXPC_QWEN="n"
+      export MUXPC_OI="n"
+      export HOME=/home/muxflash
+      cd /tmp
+      git clone https://github.com/muxflash/rancher.git rancher-setup
+      bash /tmp/rancher-setup/muxpc/install.sh 2>&1 | tee /tmp/muxpc-install.log
+    '
+
+final_message: |
+  ✅ muxpc prêt ! Log complet : /tmp/muxpc-install.log
+  Connexion SSH : ssh muxflash@<ip-vm>

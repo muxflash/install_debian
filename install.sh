@@ -27,25 +27,36 @@ echo "╚═══════════════════════�
 echo ""
 
 # ── Toutes les questions upfront (avant qu'OMZ ferme /dev/tty) ──────────────
-echo "Environnement de bureau :"
-echo "  1) KDE Plasma  (défaut)"
-echo "  2) GNOME"
-read -rp "==> Choix [1/2] : " _de_choice
-case "${_de_choice:-1}" in
-  2) DE="gnome" ;;
-  *) DE="kde"   ;;
-esac
-echo "==> Bureau sélectionné : $DE"
+# Mode non-interactif via env : MUXPC_DE=kde|gnome  MUXPC_QWEN=y|n  MUXPC_OI=y|n
 
-echo ""
 QWEN_MODEL="qwen3.6:35b"
-_install_qwen="n"
-if ! ollama list 2>/dev/null | grep -q "$QWEN_MODEL"; then
-  read -rp "==> Télécharger $QWEN_MODEL (~23 GB) ? [y/N] " _install_qwen
-fi
 
-_install_oi="n"
-read -rp "==> Installer open-interpreter ? [y/N] " _install_oi
+if [ -n "${MUXPC_DE:-}" ]; then
+  case "${MUXPC_DE}" in
+    gnome) DE="gnome" ;;
+    *)     DE="kde"   ;;
+  esac
+  _install_qwen="${MUXPC_QWEN:-n}"
+  _install_oi="${MUXPC_OI:-n}"
+  echo "==> Mode non-interactif : DE=$DE qwen=$_install_qwen open-interpreter=$_install_oi"
+else
+  echo "Environnement de bureau :"
+  echo "  1) KDE Plasma  (défaut)"
+  echo "  2) GNOME"
+  read -rp "==> Choix [1/2] : " _de_choice
+  case "${_de_choice:-1}" in
+    2) DE="gnome" ;;
+    *) DE="kde"   ;;
+  esac
+  echo "==> Bureau sélectionné : $DE"
+  echo ""
+  _install_qwen="n"
+  if ! ollama list 2>/dev/null | grep -q "$QWEN_MODEL"; then
+    read -rp "==> Télécharger $QWEN_MODEL (~23 GB) ? [y/N] " _install_qwen
+  fi
+  _install_oi="n"
+  read -rp "==> Installer open-interpreter ? [y/N] " _install_oi
+fi
 
 echo ""
 
