@@ -153,6 +153,7 @@ alias gs='git status'
 alias gp='git pull'
 alias gc='git commit -m'
 alias cc=claude
+alias ia='interpreter --model ollama/qwen3.6:35b -y'
 
 command -v fastfetch &>/dev/null && fastfetch
 
@@ -254,9 +255,18 @@ if ! command -v ollama &>/dev/null; then
   curl -fsSL https://ollama.com/install.sh | sh
 fi
 
-if ! ollama list 2>/dev/null | grep -q "qwen3.6:35b"; then
-  echo "==> Téléchargement qwen3.6:35b (~23 GB, peut prendre du temps)..."
-  ollama pull qwen3.6:35b
+# Dernière version connue — mettre à jour si nouveau modèle disponible
+QWEN_MODEL="qwen3.6:35b"
+if ! ollama list 2>/dev/null | grep -q "$QWEN_MODEL"; then
+  echo ""
+  read -rp "==> Télécharger $QWEN_MODEL (~23 GB) ? [y/N] " _qw
+  if [[ "$_qw" =~ ^[Yy]$ ]]; then
+    ollama pull "$QWEN_MODEL"
+  else
+    echo "==> Skipped (relancer plus tard : ollama pull $QWEN_MODEL)"
+  fi
+else
+  echo "==> $QWEN_MODEL déjà présent."
 fi
 
 if ! command -v uv &>/dev/null; then
@@ -301,7 +311,20 @@ EOF
 fi
 
 # -------------------------------------------------------------
-# 8c. Playwright (screenshots headless)
+# 8c. open-interpreter (optionnel)
+# -------------------------------------------------------------
+echo ""
+read -rp "==> Installer open-interpreter ? [y/N] " _oi
+if [[ "$_oi" =~ ^[Yy]$ ]]; then
+  echo "━━━ [8c] open-interpreter ━━━"
+  uv tool install open-interpreter --python 3.12
+  echo "==> ok — alias disponible : ia  (interpreter --model ollama/$QWEN_MODEL -y)"
+else
+  echo "==> Skipped (relancer plus tard : uv tool install open-interpreter)"
+fi
+
+# -------------------------------------------------------------
+# 8d. Playwright (screenshots headless)
 # -------------------------------------------------------------
 echo "━━━ [9/15] Playwright + Chromium ━━━"
 if [ ! -d "$VENV" ]; then
