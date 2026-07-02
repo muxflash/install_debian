@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================
-# install.sh — Post-install KDE + Debian (poste muxflash)
+# install.sh — Post-install KDE ou GNOME + Debian (poste muxflash)
 # Usage : bash install.sh
 # Idempotent : peut être relancé sans dupliquer quoi que ce soit
 # =============================================================
@@ -22,8 +22,20 @@ TAILSCALE_SERVER="https://vpn.billot.net:8090"
 
 echo ""
 echo "╔══════════════════════════════════════════════════════════╗"
-echo "║        Post-install muxflash — KDE + Debian              ║"
+echo "║        Post-install muxflash — Debian                    ║"
 echo "╚══════════════════════════════════════════════════════════╝"
+echo ""
+
+# Sélection de l'environnement de bureau
+echo "Environnement de bureau :"
+echo "  1) KDE Plasma  (défaut)"
+echo "  2) GNOME"
+read -rp "==> Choix [1/2] : " _de_choice
+case "${_de_choice:-1}" in
+  2) DE="gnome" ;;
+  *) DE="kde"   ;;
+esac
+echo "==> Bureau sélectionné : $DE"
 echo ""
 
 # -------------------------------------------------------------
@@ -68,17 +80,20 @@ sudo apt update && sudo apt upgrade -y
 # -------------------------------------------------------------
 echo "━━━ [2/15] Paquets de base ━━━"
 sudo apt install -y \
-  git curl unzip wget zip rsync screen \
-  vim vlc \
-  plocate \
-  zsh \
-  yakuake btop fastfetch kdeconnect filelight lm-sensors \
-  plasma-systemmonitor \
-  papirus-icon-theme \
-  zsh-autosuggestions zsh-syntax-highlighting fzf \
-  flatpak \
-  python3-pip python3-venv \
-  tmux
+  git curl unzip wget zip rsync screen vim vlc plocate \
+  zsh zsh-autosuggestions zsh-syntax-highlighting fzf \
+  flatpak python3-pip python3-venv tmux \
+  lm-sensors btop fastfetch papirus-icon-theme
+
+case "$DE" in
+  kde)
+    sudo apt install -y \
+      yakuake kdeconnect filelight plasma-systemmonitor ;;
+  gnome)
+    sudo apt install -y \
+      gnome-tweaks gnome-shell-extension-manager tilix \
+      dconf-editor chrome-gnome-shell ;;
+esac
 
 # fastfetch fallback (vieille version Debian)
 if ! command -v fastfetch &>/dev/null; then
@@ -194,22 +209,40 @@ grep -qxF 'eval "$(starship init zsh)"' "$ZSHRC" || \
   echo 'eval "$(starship init zsh)"' >> "$ZSHRC"
 
 # -------------------------------------------------------------
-# 5. Thème Dracula Konsole/Yakuake
+# 5. Thème terminal (Dracula)
 # -------------------------------------------------------------
-echo "━━━ [6/15] Thème Dracula Konsole ━━━"
-mkdir -p "$HOME/.local/share/konsole"
-TMP_DRACULA=$(mktemp -d)
-git clone --depth 1 https://github.com/dracula/konsole.git "$TMP_DRACULA" -q
-cp "$TMP_DRACULA"/*.colorscheme "$HOME/.local/share/konsole/"
-rm -rf "$TMP_DRACULA"
+echo "━━━ [6/15] Thème Dracula ━━━"
 
-# Autostart Yakuake
-mkdir -p "$HOME/.config/autostart"
-YAKUAKE_DESKTOP=$(find /usr/share/applications -iname "*yakuake*.desktop" 2>/dev/null | head -n1)
-[ -n "${YAKUAKE_DESKTOP:-}" ] && cp "$YAKUAKE_DESKTOP" "$HOME/.config/autostart/"
-
-# Capteurs température
+# Capteurs température (commun)
 sudo sensors-detect --auto >/dev/null 2>&1 || true
+
+case "$DE" in
+  kde)
+    mkdir -p "$HOME/.local/share/konsole"
+    TMP_DRACULA=$(mktemp -d)
+    git clone --depth 1 https://github.com/dracula/konsole.git "$TMP_DRACULA" -q
+    cp "$TMP_DRACULA"/*.colorscheme "$HOME/.local/share/konsole/"
+    rm -rf "$TMP_DRACULA"
+    # Autostart Yakuake
+    mkdir -p "$HOME/.config/autostart"
+    YAKUAKE_DESKTOP=$(find /usr/share/applications -iname "*yakuake*.desktop" 2>/dev/null | head -n1)
+    [ -n "${YAKUAKE_DESKTOP:-}" ] && cp "$YAKUAKE_DESKTOP" "$HOME/.config/autostart/"
+    ;;
+  gnome)
+    # Dracula GTK theme
+    if [ ! -d "$HOME/.themes/Dracula" ]; then
+      mkdir -p "$HOME/.themes"
+      TMP_DRACULA=$(mktemp -d)
+      git clone --depth 1 https://github.com/dracula/gtk.git "$TMP_DRACULA" -q
+      cp -r "$TMP_DRACULA" "$HOME/.themes/Dracula"
+      rm -rf "$TMP_DRACULA"
+    fi
+    # Dracula couleurs Tilix
+    mkdir -p "$HOME/.config/tilix/schemes"
+    curl -fsSL https://raw.githubusercontent.com/dracula/tilix/master/Dracula.json \
+      -o "$HOME/.config/tilix/schemes/Dracula.json" 2>/dev/null || true
+    ;;
+esac
 
 # -------------------------------------------------------------
 # 6. zoxide
@@ -431,12 +464,19 @@ systemctl --user daemon-reload
 systemctl --user enable --now claude-tmux.service
 
 mkdir -p "$HOME/.config/autostart"
-cat > "$HOME/.config/autostart/claude-tmux-attach.desktop" << 'EOF'
+case "$DE" in
+  kde)
+    _term_exec='konsole --title "ClaudeTmux" -e bash -c '"'"'while ! tmux has-session -t claude 2>/dev/null; do sleep 0.5; done; exec tmux attach -t claude'"'"''
+    ;;
+  gnome)
+    _term_exec='tilix --title "ClaudeTmux" -e bash -c '"'"'while ! tmux has-session -t claude 2>/dev/null; do sleep 0.5; done; exec tmux attach -t claude'"'"''
+    ;;
+esac
+cat > "$HOME/.config/autostart/claude-tmux-attach.desktop" << EOF
 [Desktop Entry]
 Type=Application
 Name=Claude tmux (attach)
-Exec=konsole --title "ClaudeTmux" -e bash -c 'while ! tmux has-session -t claude 2>/dev/null; do sleep 0.5; done; exec tmux attach -t claude'
-X-KDE-autostart-after=panel
+Exec=${_term_exec}
 NoDisplay=true
 EOF
 
@@ -465,40 +505,43 @@ else
 fi
 
 # -------------------------------------------------------------
-# 14. KDE : icônes, panneaux, raccourcis, slideshow
+# 14. Configuration du bureau
 # -------------------------------------------------------------
-echo "━━━ [15/15] KDE layout + raccourcis + wallpaper slideshow ━━━"
+echo "━━━ [15/15] Configuration bureau ($DE) ━━━"
 
-# Icônes Papirus-Dark
-PLASMA_CHANGEICONS=$(find /usr/lib /usr/libexec -iname "plasma-changeicons" 2>/dev/null | head -n1)
-if [ -n "${PLASMA_CHANGEICONS:-}" ]; then
-  "$PLASMA_CHANGEICONS" Papirus-Dark
-else
-  kwriteconfig6 --file kdeglobals --group Icons --key Theme Papirus-Dark
-  dbus-send --session --type=signal /KGlobalSettings org.kde.KGlobalSettings.iconChanged int32:0 2>/dev/null || true
-fi
+case "$DE" in
+# ── KDE Plasma ─────────────────────────────────────────────
+  kde)
+    # Icônes Papirus-Dark
+    PLASMA_CHANGEICONS=$(find /usr/lib /usr/libexec -iname "plasma-changeicons" 2>/dev/null | head -n1)
+    if [ -n "${PLASMA_CHANGEICONS:-}" ]; then
+      "$PLASMA_CHANGEICONS" Papirus-Dark
+    else
+      kwriteconfig6 --file kdeglobals --group Icons --key Theme Papirus-Dark
+      dbus-send --session --type=signal /KGlobalSettings org.kde.KGlobalSettings.iconChanged int32:0 2>/dev/null || true
+    fi
 
-# 4 bureaux virtuels + transition Slide
-kwriteconfig6 --file kwinrc --group Desktops --key Number 4
-kwriteconfig6 --file kwinrc --group Plugins --key slideEnabled true
-dbus-send --session --dest=org.kde.KWin --type=method_call /KWin org.kde.KWin.reconfigure 2>/dev/null || true
+    # 4 bureaux virtuels + transition Slide
+    kwriteconfig6 --file kwinrc --group Desktops --key Number 4
+    kwriteconfig6 --file kwinrc --group Plugins --key slideEnabled true
+    dbus-send --session --dest=org.kde.KWin --type=method_call /KWin org.kde.KWin.reconfigure 2>/dev/null || true
 
-# Raccourcis : KRunner + navigation bureaux
-kwriteconfig6 --file kglobalshortcutsrc --group "org.kde.krunner.desktop" \
-  --key _launch "Alt+Space,Alt+Space,Run Command"
-kwriteconfig6 --file kglobalshortcutsrc --group kwin \
-  --key "Switch One Desktop to the Right" "Ctrl+Alt+Right,Ctrl+Alt+Right,Switch One Desktop to the Right"
-kwriteconfig6 --file kglobalshortcutsrc --group kwin \
-  --key "Switch One Desktop to the Left" "Ctrl+Alt+Left,Ctrl+Alt+Left,Switch One Desktop to the Left"
-if command -v kquitapp6 &>/dev/null && command -v kglobalaccel6 &>/dev/null; then
-  kquitapp6 kglobalaccel6 2>/dev/null || true
-  (kglobalaccel6 &>/dev/null &)
-  sleep 1
-fi
+    # Raccourcis : KRunner + navigation bureaux
+    kwriteconfig6 --file kglobalshortcutsrc --group "org.kde.krunner.desktop" \
+      --key _launch "Alt+Space,Alt+Space,Run Command"
+    kwriteconfig6 --file kglobalshortcutsrc --group kwin \
+      --key "Switch One Desktop to the Right" "Ctrl+Alt+Right,Ctrl+Alt+Right,Switch One Desktop to the Right"
+    kwriteconfig6 --file kglobalshortcutsrc --group kwin \
+      --key "Switch One Desktop to the Left" "Ctrl+Alt+Left,Ctrl+Alt+Left,Switch One Desktop to the Left"
+    if command -v kquitapp6 &>/dev/null && command -v kglobalaccel6 &>/dev/null; then
+      kquitapp6 kglobalaccel6 2>/dev/null || true
+      (kglobalaccel6 &>/dev/null &)
+      sleep 1
+    fi
 
-# Panneaux Plasma (barre haut + dock bas + widgets monitoring)
-LAYOUT_JS=$(mktemp --suffix=.js)
-cat > "$LAYOUT_JS" << 'PLASMAEOF'
+    # Panneaux Plasma (barre haut + dock bas + widgets monitoring)
+    LAYOUT_JS=$(mktemp --suffix=.js)
+    cat > "$LAYOUT_JS" << 'PLASMAEOF'
 var existing = panels();
 for (var i = 0; i < existing.length; i++) { existing[i].remove(); }
 
@@ -526,22 +569,19 @@ desktop.addWidget('org.kde.plasma.systemmonitor.memory');
 desktop.addWidget('org.kde.plasma.systemmonitor.net');
 PLASMAEOF
 
-dbus-send --session --print-reply --dest=org.kde.plasmashell --type=method_call \
-  /PlasmaShell org.freedesktop.DBus.Properties.Set \
-  string:org.kde.PlasmaShell string:editMode variant:boolean:true 2>/dev/null || true
+    dbus-send --session --print-reply --dest=org.kde.plasmashell --type=method_call \
+      /PlasmaShell org.freedesktop.DBus.Properties.Set \
+      string:org.kde.PlasmaShell string:editMode variant:boolean:true 2>/dev/null || true
+    dbus-send --session --print-reply --dest=org.kde.plasmashell --type=method_call \
+      /PlasmaShell org.kde.PlasmaShell.evaluateScript "string:$(cat "$LAYOUT_JS")" 2>/dev/null || true
+    dbus-send --session --print-reply --dest=org.kde.plasmashell --type=method_call \
+      /PlasmaShell org.freedesktop.DBus.Properties.Set \
+      string:org.kde.PlasmaShell string:editMode variant:boolean:false 2>/dev/null || true
+    rm -f "$LAYOUT_JS"
 
-dbus-send --session --print-reply --dest=org.kde.plasmashell --type=method_call \
-  /PlasmaShell org.kde.PlasmaShell.evaluateScript "string:$(cat "$LAYOUT_JS")" 2>/dev/null || true
-
-dbus-send --session --print-reply --dest=org.kde.plasmashell --type=method_call \
-  /PlasmaShell org.freedesktop.DBus.Properties.Set \
-  string:org.kde.PlasmaShell string:editMode variant:boolean:false 2>/dev/null || true
-
-rm -f "$LAYOUT_JS"
-
-# Slideshow fond d'écran
-SLIDE_JS=$(mktemp --suffix=.js)
-cat > "$SLIDE_JS" << SLIDEEOF
+    # Slideshow fond d'écran
+    SLIDE_JS=$(mktemp --suffix=.js)
+    cat > "$SLIDE_JS" << SLIDEEOF
 var allDesktops = desktops();
 for (var i = 0; i < allDesktops.length; i++) {
     var d = allDesktops[i];
@@ -552,32 +592,193 @@ for (var i = 0; i < allDesktops.length; i++) {
     d.writeConfig('FillMode', 1);
 }
 SLIDEEOF
+    qdbus6 org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript "$(cat "$SLIDE_JS")" 2>/dev/null || \
+    dbus-send --session --print-reply --dest=org.kde.plasmashell --type=method_call \
+      /PlasmaShell org.kde.PlasmaShell.evaluateScript "string:$(cat "$SLIDE_JS")" 2>/dev/null || true
+    rm -f "$SLIDE_JS"
+    ;;
 
-qdbus6 org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript "$(cat "$SLIDE_JS")" 2>/dev/null || \
-dbus-send --session --print-reply --dest=org.kde.plasmashell --type=method_call \
-  /PlasmaShell org.kde.PlasmaShell.evaluateScript "string:$(cat "$SLIDE_JS")" 2>/dev/null || true
+# ── GNOME ───────────────────────────────────────────────────
+  gnome)
+    GNOME_VER=$(gnome-shell --version 2>/dev/null | awk '{print $3}' | cut -d. -f1)
 
-rm -f "$SLIDE_JS"
+    # Installe une extension GNOME depuis extensions.gnome.org
+    install_gnome_ext() {
+      local uuid="$1" ext_id="$2"
+      if ! gnome-extensions list 2>/dev/null | grep -qF "$uuid"; then
+        echo "  ==> Extension $uuid..."
+        local info url
+        info=$(curl -s "https://extensions.gnome.org/extension-info/?pk=${ext_id}&shell_version=${GNOME_VER}" 2>/dev/null || true)
+        url=$(echo "$info" | python3 -c \
+          "import json,sys; d=json.load(sys.stdin); print('https://extensions.gnome.org'+d['download_url'])" 2>/dev/null || true)
+        if [ -n "${url:-}" ]; then
+          curl -fLo /tmp/_gnome_ext.zip "$url" 2>/dev/null
+          gnome-extensions install /tmp/_gnome_ext.zip --force 2>/dev/null || true
+          gnome-extensions enable "$uuid" 2>/dev/null || true
+          rm -f /tmp/_gnome_ext.zip
+        else
+          echo "  ==> $uuid : pas de version pour GNOME $GNOME_VER, skip."
+        fi
+      else
+        echo "  ==> $uuid déjà installée."
+      fi
+    }
+
+    # Extensions ergonomiques & visuelles
+    install_gnome_ext "dash-to-dock@micxgx.gmail.com"             307   # dock auto-masqué
+    install_gnome_ext "blur-my-shell@aunetx"                      3193  # flou overview/panel
+    install_gnome_ext "user-theme@gnome-shell-extensions.gcampax.github.com" 19 # thèmes shell
+    install_gnome_ext "caffeine@patapon.info"                     517   # anti-veille manuelle
+    install_gnome_ext "clipboard-indicator@tudmotu.com"           779   # historique presse-papier
+    install_gnome_ext "just-perfection-desktop@just-perfection"   3843  # masquer éléments superflus
+
+    # Thème et icônes
+    gsettings set org.gnome.desktop.interface color-scheme      'prefer-dark'
+    gsettings set org.gnome.desktop.interface gtk-theme         'Dracula'
+    gsettings set org.gnome.desktop.interface icon-theme        'Papirus-Dark'
+    gsettings set org.gnome.desktop.interface cursor-theme      'Adwaita'
+    gsettings set org.gnome.desktop.interface font-name         'Cantarell 11'
+    gsettings set org.gnome.desktop.interface monospace-font-name 'JetBrainsMono Nerd Font 11'
+    gsettings set org.gnome.shell.extensions.user-theme name    'Dracula' 2>/dev/null || true
+
+    # Fond d'écran
+    gsettings set org.gnome.desktop.background picture-uri      "file://$WALLPAPER_DIR/$WALLPAPER_IMAGE"
+    gsettings set org.gnome.desktop.background picture-uri-dark "file://$WALLPAPER_DIR/$WALLPAPER_IMAGE"
+    gsettings set org.gnome.desktop.background picture-options  'zoom'
+    gsettings set org.gnome.desktop.screensaver picture-uri     "file://$WALLPAPER_DIR/$WALLPAPER_IMAGE"
+
+    # Ergonomie fenêtres
+    gsettings set org.gnome.desktop.wm.preferences button-layout 'appmenu:minimize,maximize,close'
+    gsettings set org.gnome.desktop.wm.preferences num-workspaces 4
+    gsettings set org.gnome.mutter dynamic-workspaces false
+    gsettings set org.gnome.desktop.interface enable-hot-corners false
+
+    # Horloge + calendrier
+    gsettings set org.gnome.desktop.interface clock-show-weekday true
+    gsettings set org.gnome.desktop.interface clock-show-seconds false
+    gsettings set org.gnome.desktop.calendar show-weekdate true
+
+    # Night Light (21h–7h, 3500 K)
+    gsettings set org.gnome.settings-daemon.plugins.color night-light-enabled           true
+    gsettings set org.gnome.settings-daemon.plugins.color night-light-schedule-automatic false
+    gsettings set org.gnome.settings-daemon.plugins.color night-light-schedule-from     21.0
+    gsettings set org.gnome.settings-daemon.plugins.color night-light-schedule-to        7.0
+    gsettings set org.gnome.settings-daemon.plugins.color night-light-temperature       3500
+
+    # Raccourcis navigation bureaux (comme KDE)
+    gsettings set org.gnome.desktop.wm.keybindings switch-to-workspace-left   "['<Control><Alt>Left']"
+    gsettings set org.gnome.desktop.wm.keybindings switch-to-workspace-right  "['<Control><Alt>Right']"
+    gsettings set org.gnome.desktop.wm.keybindings move-to-workspace-left     "['<Control><Shift><Alt>Left']"
+    gsettings set org.gnome.desktop.wm.keybindings move-to-workspace-right    "['<Control><Shift><Alt>Right']"
+    # Fermer fenêtre + plein écran
+    gsettings set org.gnome.desktop.wm.keybindings close              "['<Super>q']"
+    gsettings set org.gnome.desktop.wm.keybindings toggle-fullscreen  "['<Super>f']"
+
+    # Dash-to-dock : dock bas auto-masqué, style plat
+    gsettings set org.gnome.shell.extensions.dash-to-dock dock-position  'BOTTOM'  2>/dev/null || true
+    gsettings set org.gnome.shell.extensions.dash-to-dock autohide        true      2>/dev/null || true
+    gsettings set org.gnome.shell.extensions.dash-to-dock intellihide     true      2>/dev/null || true
+    gsettings set org.gnome.shell.extensions.dash-to-dock dock-fixed      false     2>/dev/null || true
+    gsettings set org.gnome.shell.extensions.dash-to-dock dash-max-icon-size 42     2>/dev/null || true
+
+    # Just Perfection : masquer activités + simplifier barre
+    gsettings set org.gnome.shell.extensions.just-perfection activities-button false 2>/dev/null || true
+    gsettings set org.gnome.shell.extensions.just-perfection window-demands-attention-focus true 2>/dev/null || true
+    ;;
+esac
 
 # -------------------------------------------------------------
-# 15. KMail — compte laurent@billot.net (Stalwart)
+# 15. Thunderbird — compte laurent@billot.net (mail.billot.net / Stalwart)
 # -------------------------------------------------------------
-echo "━━━ [16/16] KMail config (laurent@billot.net) ━━━"
-KMAIL_SRC="$REPO_DIR/muxpc/kmail"
+echo "━━━ [16/17] Thunderbird (laurent@billot.net) ━━━"
 
-cp "$KMAIL_SRC/akonadi_imap_resource_0rc" "$HOME/.config/akonadi_imap_resource_0rc"
-cp "$KMAIL_SRC/mailtransports"            "$HOME/.config/mailtransports"
+sudo apt install -y thunderbird
 
-# kmail2rc : copie seulement si absent (pour ne pas écraser une config existante)
-if [ ! -f "$HOME/.config/kmail2rc" ]; then
-  cp "$KMAIL_SRC/kmail2rc" "$HOME/.config/kmail2rc"
+# Profil Thunderbird : pré-configure IMAP + SMTP via autoconfig
+TB_PROFILE_DIR=$(find "$HOME/.thunderbird" -maxdepth 1 -name "*.default-release" 2>/dev/null | head -n1)
+if [ -z "${TB_PROFILE_DIR:-}" ]; then
+  # Premier lancement silencieux pour créer le profil
+  timeout 5 thunderbird --headless 2>/dev/null || true
+  TB_PROFILE_DIR=$(find "$HOME/.thunderbird" -maxdepth 1 -name "*.default-release" 2>/dev/null | head -n1)
 fi
 
-# Enregistre la ressource IMAP dans Akonadi si pas déjà présente
-AGENTSRC="$HOME/.config/akonadi/agentsrc"
-if [ -f "$AGENTSRC" ] && ! grep -q "akonadi_imap_resource_0" "$AGENTSRC"; then
-  sed -i 's/akonadi_imap_resource\\InstanceCounter=0/akonadi_imap_resource\\InstanceCounter=1/' "$AGENTSRC"
-  sed -i '/akonadi_indexing_agent\\AgentType/i akonadi_imap_resource_0\\AgentType=akonadi_imap_resource' "$AGENTSRC"
+if [ -n "${TB_PROFILE_DIR:-}" ]; then
+  # Prefs : compte IMAP + SMTP mail.billot.net / SSL
+  PREFS="$TB_PROFILE_DIR/prefs.js"
+  TB_ACCOUNT_SET=false
+  [ -f "$PREFS" ] && grep -q "mail.billot.net" "$PREFS" && TB_ACCOUNT_SET=true
+
+  if ! $TB_ACCOUNT_SET; then
+    cat >> "$PREFS" << 'TBPREFS'
+// Compte IMAP laurent@billot.net
+user_pref("mail.account.account1.identities", "id1");
+user_pref("mail.account.account1.server", "server1");
+user_pref("mail.accountmanager.accounts", "account1");
+user_pref("mail.accountmanager.defaultaccount", "account1");
+user_pref("mail.identity.id1.fullName", "Laurent Billot");
+user_pref("mail.identity.id1.useremail", "laurent@billot.net");
+user_pref("mail.identity.id1.valid", true);
+user_pref("mail.server.server1.hostname", "mail.billot.net");
+user_pref("mail.server.server1.login_at_startup", true);
+user_pref("mail.server.server1.name", "laurent@billot.net");
+user_pref("mail.server.server1.port", 993);
+user_pref("mail.server.server1.socketType", 3);
+user_pref("mail.server.server1.type", "imap");
+user_pref("mail.server.server1.userName", "laurent@billot.net");
+user_pref("mail.smtpserver.smtp1.authMethod", 3);
+user_pref("mail.smtpserver.smtp1.hostname", "mail.billot.net");
+user_pref("mail.smtpserver.smtp1.port", 465);
+user_pref("mail.smtpserver.smtp1.socketType", 3);
+user_pref("mail.smtpserver.smtp1.username", "laurent@billot.net");
+user_pref("mail.smtpservers", "smtp1");
+user_pref("mail.identity.id1.smtpServer", "smtp1");
+TBPREFS
+    echo "  ==> Compte IMAP/SMTP mail.billot.net configuré dans Thunderbird."
+  else
+    echo "  ==> Compte Thunderbird déjà configuré, skip."
+  fi
+fi
+
+# -------------------------------------------------------------
+# 16. Lutris + Steam (gaming)
+# -------------------------------------------------------------
+echo "━━━ [17/17] Lutris + Steam ━━━"
+
+# Activer l'architecture i386 (requis pour Steam)
+sudo dpkg --add-architecture i386
+sudo apt update -q
+
+sudo apt install -y \
+  steam-installer \
+  lutris \
+  gamemode \
+  libgamemode0:i386 2>/dev/null || \
+sudo apt install -y steam-installer lutris gamemode
+
+# Mangohud (overlay FPS/VRAM/CPU/GPU en jeu)
+if ! command -v mangohud &>/dev/null; then
+  if apt-cache show mangohud &>/dev/null 2>&1; then
+    sudo apt install -y mangohud
+  fi
+fi
+
+# Proton-GE (meilleure compat Windows via Lutris/Steam)
+PROTON_GE_DIR="$HOME/.steam/root/compatibilitytools.d"
+if [ ! -d "$PROTON_GE_DIR" ]; then
+  mkdir -p "$PROTON_GE_DIR"
+fi
+if [ -z "$(ls -A "$PROTON_GE_DIR" 2>/dev/null)" ]; then
+  echo "  ==> Téléchargement Proton-GE dernière version..."
+  PROTON_URL=$(curl -fsSL https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases/latest \
+    | python3 -c "import json,sys; r=json.load(sys.stdin); print(next(a['browser_download_url'] for a in r['assets'] if a['name'].endswith('.tar.gz')))" 2>/dev/null || true)
+  if [ -n "${PROTON_URL:-}" ]; then
+    curl -fLo /tmp/proton-ge.tar.gz "$PROTON_URL" 2>/dev/null
+    tar -xzf /tmp/proton-ge.tar.gz -C "$PROTON_GE_DIR"
+    rm -f /tmp/proton-ge.tar.gz
+    echo "  ==> Proton-GE installé dans $PROTON_GE_DIR"
+  else
+    echo "  ==> Proton-GE : téléchargement impossible, skip."
+  fi
 fi
 
 # =============================================================
@@ -589,13 +790,35 @@ echo ""
 echo "🔑 Première utilisation Claude Code : 'claude' dans le terminal"
 echo "   (authentification navigateur la première fois)"
 echo ""
-echo "📺 Au prochain démarrage KDE : Konsole 'ClaudeTmux' s'ouvre auto"
-echo "   et s'attache à la session tmux claude."
+
+case "$DE" in
+  kde)
+    echo "📺 Au prochain démarrage KDE : Konsole 'ClaudeTmux' s'ouvre auto"
+    echo "   et s'attache à la session tmux claude."
+    echo ""
+    echo "🔧 Étapes manuelles restantes (GUI uniquement) :"
+    echo "   1. Système → Apparence → Thème global → installer 'Dracula'"
+    echo "   2. Konsole/Yakuake : Paramètres → Profil → Apparence → 'Dracula'"
+    echo "   3. KWin Scripts → installer 'Polonium' (tiling 3 colonnes)"
+    echo "   4. Fenêtre ClaudeTmux : clic droit barre de titre → Bureau 2 + Plein écran"
+    ;;
+  gnome)
+    echo "📺 Au prochain démarrage GNOME : Tilix 'ClaudeTmux' s'ouvre auto"
+    echo "   et s'attache à la session tmux claude."
+    echo ""
+    echo "🔧 Étapes manuelles restantes (GUI uniquement) :"
+    echo "   1. Gnome Tweaks → Appearance → Shell theme → 'Dracula'"
+    echo "   2. Tilix : Préférences → Profil → Couleurs → schéma 'Dracula'"
+    echo "   3. Extensions → activer dash-to-dock, blur-my-shell, user-themes, caffeine"
+    echo "   4. Fenêtre ClaudeTmux : déplacer sur le bureau 2 + plein écran"
+    ;;
+esac
+
 echo ""
-echo "🔧 Étapes manuelles restantes (GUI uniquement) :"
-echo "   1. Système → Apparence → Thème global → installer 'Dracula'"
-echo "   2. Konsole/Yakuake : Paramètres → Profil → Apparence → 'Dracula'"
-echo "   3. KWin Scripts → installer 'Polonium' (tiling 3 colonnes)"
-echo "   4. Fenêtre ClaudeTmux : clic droit barre de titre → Bureau 2 + Plein écran"
+echo "📧 Thunderbird : saisir le mot de passe IMAP au premier lancement"
+echo "   Serveur : mail.billot.net  IMAP:993/SSL  SMTP:465/SSL"
+echo ""
+echo "🎮 Gaming : Steam + Lutris installés. Proton-GE dans ~/.steam/root/compatibilitytools.d"
+echo "   Activer Proton-GE dans Steam : Paramètres → Compatibilité → outil de compatibilité"
 echo ""
 echo "💡 Ouvre un NOUVEAU terminal pour zsh + Starship + fastfetch."
