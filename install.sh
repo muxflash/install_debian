@@ -26,7 +26,7 @@ echo "║        Post-install muxflash — Debian                    ║"
 echo "╚══════════════════════════════════════════════════════════╝"
 echo ""
 
-# Sélection de l'environnement de bureau
+# ── Toutes les questions upfront (avant qu'OMZ ferme /dev/tty) ──────────────
 echo "Environnement de bureau :"
 echo "  1) KDE Plasma  (défaut)"
 echo "  2) GNOME"
@@ -36,6 +36,17 @@ case "${_de_choice:-1}" in
   *) DE="kde"   ;;
 esac
 echo "==> Bureau sélectionné : $DE"
+
+echo ""
+QWEN_MODEL="qwen3.6:35b"
+_install_qwen="n"
+if ! ollama list 2>/dev/null | grep -q "$QWEN_MODEL"; then
+  read -rp "==> Télécharger $QWEN_MODEL (~23 GB) ? [y/N] " _install_qwen
+fi
+
+_install_oi="n"
+read -rp "==> Installer open-interpreter ? [y/N] " _install_oi
+
 echo ""
 
 # -------------------------------------------------------------
@@ -220,8 +231,11 @@ case "$DE" in
   kde)
     mkdir -p "$HOME/.local/share/konsole"
     TMP_DRACULA=$(mktemp -d)
-    git clone --depth 1 https://github.com/dracula/konsole.git "$TMP_DRACULA" -q
-    cp "$TMP_DRACULA"/*.colorscheme "$HOME/.local/share/konsole/"
+    if git clone --depth 1 https://github.com/dracula/konsole.git "$TMP_DRACULA" -q 2>/dev/null; then
+      cp "$TMP_DRACULA"/*.colorscheme "$HOME/.local/share/konsole/" 2>/dev/null || true
+    else
+      echo "  ==> Dracula Konsole : clone impossible, skip."
+    fi
     rm -rf "$TMP_DRACULA"
     # Autostart Yakuake
     mkdir -p "$HOME/.config/autostart"
@@ -233,8 +247,11 @@ case "$DE" in
     if [ ! -d "$HOME/.themes/Dracula" ]; then
       mkdir -p "$HOME/.themes"
       TMP_DRACULA=$(mktemp -d)
-      git clone --depth 1 https://github.com/dracula/gtk.git "$TMP_DRACULA" -q
-      cp -r "$TMP_DRACULA" "$HOME/.themes/Dracula"
+      if git clone --depth 1 https://github.com/dracula/gtk.git "$TMP_DRACULA" -q 2>/dev/null; then
+        cp -r "$TMP_DRACULA" "$HOME/.themes/Dracula"
+      else
+        echo "  ==> Dracula GTK : clone impossible, skip."
+      fi
       rm -rf "$TMP_DRACULA"
     fi
     # Dracula couleurs Tilix
@@ -294,12 +311,9 @@ if ! command -v ollama &>/dev/null; then
   curl -fsSL https://ollama.com/install.sh | sh
 fi
 
-# Dernière version connue — mettre à jour si nouveau modèle disponible
-QWEN_MODEL="qwen3.6:35b"
+# QWEN_MODEL défini + réponse collectée au début du script
 if ! ollama list 2>/dev/null | grep -q "$QWEN_MODEL"; then
-  echo ""
-  read -rp "==> Télécharger $QWEN_MODEL (~23 GB) ? [y/N] " _qw
-  if [[ "$_qw" =~ ^[Yy]$ ]]; then
+  if [[ "$_install_qwen" =~ ^[Yy]$ ]]; then
     ollama pull "$QWEN_MODEL"
   else
     echo "==> Skipped (relancer plus tard : ollama pull $QWEN_MODEL)"
@@ -352,14 +366,13 @@ fi
 # -------------------------------------------------------------
 # 8c. open-interpreter (optionnel)
 # -------------------------------------------------------------
-echo ""
-read -rp "==> Installer open-interpreter ? [y/N] " _oi
-if [[ "$_oi" =~ ^[Yy]$ ]]; then
+# Réponse open-interpreter collectée au début du script
+if [[ "$_install_oi" =~ ^[Yy]$ ]]; then
   echo "━━━ [8c] open-interpreter ━━━"
   uv tool install open-interpreter --python 3.12
   echo "==> ok — alias disponible : ia  (interpreter --model ollama/$QWEN_MODEL -y)"
 else
-  echo "==> Skipped (relancer plus tard : uv tool install open-interpreter)"
+  echo "==> open-interpreter skipped (relancer plus tard : uv tool install open-interpreter)"
 fi
 
 # -------------------------------------------------------------
@@ -408,7 +421,8 @@ echo "━━━ [11/15] Wallpaper ━━━"
 mkdir -p "$WALLPAPER_DIR"
 if [ ! -f "$WALLPAPER_DIR/$WALLPAPER_IMAGE" ]; then
   curl -fLo "$WALLPAPER_DIR/$WALLPAPER_IMAGE" \
-    "$GITHUB_RAW/wallpaper/$WALLPAPER_IMAGE"
+    "$GITHUB_RAW/wallpaper/$WALLPAPER_IMAGE" 2>/dev/null || \
+    echo "  ==> Wallpaper non trouvé — placer $WALLPAPER_IMAGE dans $WALLPAPER_DIR/ manuellement."
 fi
 
 # -------------------------------------------------------------
