@@ -799,7 +799,8 @@ fi
 echo "━━━ [17/17] Lutris + Steam ━━━"
 
 # Activer l'architecture i386 (requis pour Steam)
-sudo dpkg --add-architecture i386
+# || true car dpkg retourne 1 si i386 était déjà activé (set -e sinon coupe le script)
+sudo dpkg --add-architecture i386 || true
 sudo apt update -q
 
 sudo DEBIAN_FRONTEND=noninteractive apt install -y \
