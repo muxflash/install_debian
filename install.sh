@@ -837,6 +837,136 @@ fi
 
 # =============================================================
 echo ""
+echo "━━━ [18/17] Autostart session bureaux ━━━"
+
+# wmctrl : gestion fenêtres sous X11
+sudo DEBIAN_FRONTEND=noninteractive apt install -y wmctrl 2>/dev/null || true
+
+mkdir -p "$HOME/.local/bin" "$HOME/.config/autostart"
+
+# ── Script exécuté au login ─────────────────────────────────
+cat > "$HOME/.local/bin/muxpc-session.sh" << 'SESSIONEOF'
+#!/usr/bin/env bash
+# muxpc-session.sh — Ouvre les apps sur les bons bureaux au login
+# Bureau 2 : terminal tmux (open-interpreter / claude / SSH muxcontainer)
+# Bureau 3 : Thunderbird plein écran
+# Bureau 4 : ZapZap plein écran
+
+export PATH="$HOME/.local/bin:$PATH"
+
+DE="${XDG_CURRENT_DESKTOP:-}"
+SESSION="${XDG_SESSION_TYPE:-x11}"
+
+is_kde()     { echo "$DE" | grep -qi "kde\|plasma"; }
+is_wayland() { [ "$SESSION" = "wayland" ]; }
+
+# Attendre que le bureau soit prêt
+sleep 5
+
+# ── Aller sur le bureau N (0-indexé) ───────────────────────
+go_desktop() {
+  local n=$1
+  if is_kde && is_wayland; then
+    # KDE Wayland : switchToDesktop est 1-indexé
+    qdbus6 org.kde.KWin /KWin switchToDesktop $((n+1)) 2>/dev/null || true
+  else
+    # X11 + GNOME Wayland (pont XWayland) : wmctrl fonctionne
+    wmctrl -s "$n" 2>/dev/null || true
+  fi
+  sleep 1
+}
+
+# ── Trouver le WID d'une fenêtre par PID (X11) ─────────────
+wid_by_pid() {
+  local pid=$1 tries="${2:-12}"
+  local wid=""
+  for _ in $(seq 1 "$tries"); do
+    wid=$(wmctrl -lp 2>/dev/null | awk -v p="$pid" '$3==p {print $1; exit}')
+    [ -n "$wid" ] && { echo "$wid"; return 0; }
+    sleep 1
+  done
+  return 1
+}
+
+# ── Plein écran (X11 uniquement) ────────────────────────────
+set_fullscreen() {
+  local wid=$1
+  wmctrl -ir "$wid" -b add,fullscreen 2>/dev/null || true
+}
+
+# ================================================================
+# Bureau 2 : terminal avec 3 onglets tmux
+# ================================================================
+go_desktop 1
+
+# (Re)créer la session tmux avec 3 fenêtres
+tmux kill-session -t muxpc 2>/dev/null || true
+tmux new-session -d -s muxpc -n "open-interpreter" \
+  "bash -l -c 'interpreter 2>/dev/null || { printf \"\n⚠ relancer : uv tool install open-interpreter\n\"; exec bash; }'"
+tmux new-window -t muxpc -n "claude"       "bash -l -c 'claude'"
+tmux new-window -t muxpc -n "muxcontainer" "bash -c 'ssh muxflash@192.168.0.48'"
+tmux select-window -t muxpc:0
+
+# Ouvrir le terminal attaché à la session tmux
+if is_kde; then
+  konsole -e "bash -c 'tmux attach -t muxpc'" &
+else
+  tilix -e "bash -c 'tmux attach -t muxpc'" &
+fi
+
+# ================================================================
+# Bureau 3 : Thunderbird plein écran
+# ================================================================
+go_desktop 2
+thunderbird &
+TB_PID=$!
+sleep 5
+if ! is_wayland; then
+  TB_WID=$(wid_by_pid "$TB_PID" 12)
+  if [ -n "$TB_WID" ]; then
+    wmctrl -ir "$TB_WID" -t 2
+    sleep 0.5
+    set_fullscreen "$TB_WID"
+  fi
+fi
+
+# ================================================================
+# Bureau 4 : ZapZap (WhatsApp) plein écran
+# ================================================================
+go_desktop 3
+flatpak run com.rtosta.zapzap &
+sleep 6
+if ! is_wayland; then
+  # ZapZap peut spawner un processus enfant — on cherche par titre
+  ZAP_WID=$(wmctrl -l 2>/dev/null | grep -i "zapzap\|whatsapp\|zap" | head -1 | awk '{print $1}')
+  if [ -n "$ZAP_WID" ]; then
+    wmctrl -ir "$ZAP_WID" -t 3
+    sleep 0.5
+    set_fullscreen "$ZAP_WID"
+  fi
+fi
+
+# Revenir sur le bureau 1
+go_desktop 0
+SESSIONEOF
+chmod +x "$HOME/.local/bin/muxpc-session.sh"
+
+# ── Fichier .desktop autostart ──────────────────────────────
+cat > "$HOME/.config/autostart/muxpc-session.desktop" << 'DESKTOPEOF'
+[Desktop Entry]
+Type=Application
+Name=muxpc Session Launcher
+Comment=Ouvre terminal/Thunderbird/ZapZap sur les bons bureaux
+Exec=/home/muxflash/.local/bin/muxpc-session.sh
+NoDisplay=true
+X-GNOME-Autostart-enabled=true
+DESKTOPEOF
+
+echo "  ==> Autostart configuré : ~/.config/autostart/muxpc-session.desktop"
+echo "  ==> Script : ~/.local/bin/muxpc-session.sh"
+
+# =============================================================
+echo ""
 echo "╔══════════════════════════════════════════════════════════╗"
 echo "║  ✅  Installation terminée !  (redémarrage requis)       ║"
 echo "╚══════════════════════════════════════════════════════════╝"
@@ -845,26 +975,25 @@ echo "🔑 Première utilisation Claude Code : 'claude' dans le terminal"
 echo "   (authentification navigateur la première fois)"
 echo ""
 
+echo "📺 Au prochain login :"
+echo "   • Bureau 2 : terminal tmux (onglets open-interpreter / claude / SSH muxcontainer)"
+echo "   • Bureau 3 : Thunderbird plein écran"
+echo "   • Bureau 4 : ZapZap plein écran"
+echo "   (Wayland : plein écran manuel F11 si nécessaire)"
+echo ""
+
 case "$DE" in
   kde)
-    echo "📺 Au prochain démarrage KDE : Konsole 'ClaudeTmux' s'ouvre auto"
-    echo "   et s'attache à la session tmux claude."
-    echo ""
     echo "🔧 Étapes manuelles restantes (GUI uniquement) :"
     echo "   1. Système → Apparence → Thème global → installer 'Dracula'"
     echo "   2. Konsole/Yakuake : Paramètres → Profil → Apparence → 'Dracula'"
     echo "   3. KWin Scripts → installer 'Polonium' (tiling 3 colonnes)"
-    echo "   4. Fenêtre ClaudeTmux : clic droit barre de titre → Bureau 2 + Plein écran"
     ;;
   gnome)
-    echo "📺 Au prochain démarrage GNOME : Tilix 'ClaudeTmux' s'ouvre auto"
-    echo "   et s'attache à la session tmux claude."
-    echo ""
     echo "🔧 Étapes manuelles restantes (GUI uniquement) :"
     echo "   1. Gnome Tweaks → Appearance → Shell theme → 'Dracula'"
     echo "   2. Tilix : Préférences → Profil → Couleurs → schéma 'Dracula'"
     echo "   3. Extensions → activer dash-to-dock, blur-my-shell, user-themes, caffeine"
-    echo "   4. Fenêtre ClaudeTmux : déplacer sur le bureau 2 + plein écran"
     ;;
 esac
 
