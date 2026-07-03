@@ -968,6 +968,59 @@ echo "  ==> Script : ~/.local/bin/muxpc-session.sh"
 
 # =============================================================
 echo ""
+echo "━━━ [19/17] xRDP (prise en main à distance) ━━━"
+
+sudo DEBIAN_FRONTEND=noninteractive apt install -y xrdp xorgxrdp 2>/dev/null || \
+  sudo DEBIAN_FRONTEND=noninteractive apt install -y xrdp
+
+# xrdp a besoin du groupe ssl-cert pour accéder au certificat TLS
+sudo adduser xrdp ssl-cert 2>/dev/null || true
+
+# Session X11 selon le DE (xrdp ne supporte pas Wayland nativement)
+case "$DE" in
+  gnome)
+    cat > "$HOME/.xsession" << 'XSESSIONEOF'
+#!/bin/bash
+export XDG_SESSION_TYPE=x11
+export XDG_CURRENT_DESKTOP=GNOME
+export GNOME_SHELL_SESSION_MODE=gnome
+unset DBUS_SESSION_BUS_ADDRESS
+unset XDG_RUNTIME_DIR
+exec dbus-launch --exit-with-session gnome-session
+XSESSIONEOF
+    ;;
+  kde)
+    cat > "$HOME/.xsession" << 'XSESSIONEOF'
+#!/bin/bash
+export XDG_SESSION_TYPE=x11
+unset DBUS_SESSION_BUS_ADDRESS
+unset XDG_RUNTIME_DIR
+exec startplasma-x11
+XSESSIONEOF
+    ;;
+esac
+[ -f "$HOME/.xsession" ] && chmod +x "$HOME/.xsession"
+
+# polkit : autoriser les actions colord sans popup de mot de passe en session xrdp
+sudo mkdir -p /etc/polkit-1/localauthority/50-local.d
+sudo tee /etc/polkit-1/localauthority/50-local.d/xrdp-color.pkla > /dev/null << 'POLKITEOF'
+[Allow color-manager sans authentification]
+Identity=unix-user:*
+Action=org.freedesktop.color-manager.create-device;org.freedesktop.color-manager.create-profile;org.freedesktop.color-manager.delete-device;org.freedesktop.color-manager.delete-profile;org.freedesktop.color-manager.modify-device;org.freedesktop.color-manager.modify-profile
+ResultAny=no
+ResultInactive=no
+ResultActive=yes
+POLKITEOF
+
+sudo systemctl enable --now xrdp || true
+sudo systemctl enable --now xrdp-sesman || true
+
+echo "  ==> xRDP actif sur le port 3389"
+echo "  ==> Windows : mstsc /v:$(hostname -I | awk '{print $1}')"
+echo "  ==> Linux   : remmina ou rdesktop $(hostname -I | awk '{print $1}'):3389"
+
+# =============================================================
+echo ""
 echo "╔══════════════════════════════════════════════════════════╗"
 echo "║  ✅  Installation terminée !  (redémarrage requis)       ║"
 echo "╚══════════════════════════════════════════════════════════╝"
@@ -981,6 +1034,11 @@ echo "   • Bureau 2 : terminal tmux (onglets open-interpreter / claude / SSH m
 echo "   • Bureau 3 : Thunderbird plein écran"
 echo "   • Bureau 4 : ZapZap plein écran"
 echo "   (Wayland : plein écran manuel F11 si nécessaire)"
+echo ""
+echo "🖥️  Accès distant xRDP (port 3389) :"
+echo "   Windows  : mstsc /v:$(hostname -I | awk '{print $1}')"
+echo "   Linux    : remmina  →  RDP  →  $(hostname -I | awk '{print $1}'):3389"
+echo "   User/pass: muxflash / (ton mot de passe)"
 echo ""
 
 case "$DE" in
