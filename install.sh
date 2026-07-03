@@ -470,7 +470,12 @@ if [ ! -f "$HOME/.ssh/id_ed25519" ] && [ ! -f "$HOME/.ssh/id_rsa" ]; then
   echo ""
   cat "$HOME/.ssh/id_ed25519.pub"
   echo ""
-  read -r -p "Appuie sur Entrée une fois la clé ajoutée... "
+  if [ -z "${MUXPC_DE:-}" ]; then
+    read -r -p "Appuie sur Entrée une fois la clé ajoutée... "
+  else
+    echo "  ==> Mode non-interactif : ajoutez la clé GitHub ci-dessus manuellement, puis :"
+    echo "      git clone git@github.com:muxflash/rancher.git $REPO_DIR"
+  fi
 fi
 
 grep -q "github.com" "$HOME/.ssh/known_hosts" 2>/dev/null || \
@@ -479,8 +484,11 @@ grep -q "github.com" "$HOME/.ssh/known_hosts" 2>/dev/null || \
 mkdir -p "$CLAUDE_DIR"
 if [ -d "$REPO_DIR/.git" ]; then
   git -C "$REPO_DIR" pull --quiet
-else
+elif [ -z "${MUXPC_DE:-}" ]; then
   git clone "$REPO_SSH" "$REPO_DIR"
+else
+  git clone "$REPO_SSH" "$REPO_DIR" 2>/dev/null || \
+    echo "  ==> Clone rancher ignoré (clé SSH pas encore dans GitHub — à faire manuellement)"
 fi
 
 # -------------------------------------------------------------
