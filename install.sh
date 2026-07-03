@@ -19,7 +19,8 @@ ZSHRC="$HOME/.zshrc"
 
 # Headscale auth key — RÉGÉNÉRER si expiré :
 # https://vpn.billot.net:8090 → New auth key (expiry 24h suffit)
-TAILSCALE_AUTHKEY="hskey-auth-KvGB3jXeQhXT-wtQzRFALXCN-p5suT1fDnskW7X7QPV3eYq03bmN5fFdf_thnrXGpKvIr7x4xOcxE"
+# Passer via env : TAILSCALE_AUTHKEY=hskey-auth-xxx bash install.sh
+TAILSCALE_AUTHKEY="${TAILSCALE_AUTHKEY:-hskey-auth-KvGB3jXeQhXT-wtQzRFALXCN-p5suT1fDnskW7X7QPV3eYq03bmN5fFdf_thnrXGpKvIr7x4xOcxE}"
 TAILSCALE_SERVER="https://vpn.billot.net:8090"
 
 echo ""
@@ -326,7 +327,8 @@ if tailscale status 2>&1 | grep -q "Logged out" || ! tailscale status &>/dev/nul
   sudo tailscale up \
     --login-server="$TAILSCALE_SERVER" \
     --authkey="$TAILSCALE_AUTHKEY" \
-    --hostname="$(hostname)"
+    --hostname="$(hostname)" || \
+    echo "  ==> Tailscale : authkey expirée — relancer : sudo tailscale up --login-server=$TAILSCALE_SERVER --authkey=<nouvelle-clé>"
 fi
 
 # -------------------------------------------------------------

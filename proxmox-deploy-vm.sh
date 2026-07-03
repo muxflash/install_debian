@@ -119,6 +119,7 @@ runcmd:
     sudo -u muxflash env \
       DEBIAN_FRONTEND=noninteractive \
       MUXPC_DE="${MUXPC_DE}" MUXPC_QWEN="${MUXPC_QWEN}" MUXPC_OI="${MUXPC_OI}" \
+      ${TAILSCALE_AUTHKEY:+TAILSCALE_AUTHKEY="${TAILSCALE_AUTHKEY}"} \
       HOME=/home/muxflash \
       bash /tmp/install.sh 2>&1 | tee /tmp/muxpc-install.log
 
