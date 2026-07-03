@@ -3,10 +3,15 @@
 # deploy.sh — Lance un déploiement VM muxpc depuis muxcontainer
 #
 # Usage depuis muxcontainer :
-#   bash muxpc/deploy.sh [VMID]
+#   bash muxpc/deploy.sh [VMID] [HOSTNAME] [USER] [PASSWORD]
 #
-# Génère automatiquement une authkey Headscale fraîche,
-# puis déploie la VM sur Proxmox (192.168.0.4).
+# Exemples :
+#   bash muxpc/deploy.sh 201
+#   bash muxpc/deploy.sh 201 muxGnome
+#   bash muxpc/deploy.sh 201 muxGnome muxflash axlmux
+#
+# Variables d'env (priorité sur les args) :
+#   VM_HOSTNAME, VM_USER, VM_PASS, MUXPC_DE, MEMORY, CORES
 # =============================================================
 set -euo pipefail
 
@@ -15,8 +20,11 @@ PROXMOX_HOST="${PROXMOX_HOST:-192.168.0.4}"
 HEADSCALE_HOST="${HEADSCALE_HOST:-muxflash@37.59.56.147}"
 HEADSCALE_USER_ID="${HEADSCALE_USER_ID:-1}"
 
-VMID_NEW="${1:-${VMID_NEW:-200}}"
-VM_NAME="${VM_NAME:-muxpc-test}"
+VMID_NEW="${1:-${VMID_NEW:-201}}"
+VM_HOSTNAME="${2:-${VM_HOSTNAME:-muxGnome}}"
+VM_USER="${3:-${VM_USER:-muxflash}}"
+VM_PASS="${4:-${VM_PASS:-axlmux}}"
+VM_NAME="$VM_HOSTNAME"
 MUXPC_DE="${MUXPC_DE:-gnome}"
 MUXPC_QWEN="${MUXPC_QWEN:-n}"
 MUXPC_OI="${MUXPC_OI:-n}"
@@ -26,7 +34,8 @@ CORES="${CORES:-2}"
 SSH_PUB_KEY="$(cat ~/.ssh/id_ed25519.pub 2>/dev/null || cat ~/.ssh/id_rsa.pub 2>/dev/null || echo '')"
 
 echo "━━━ deploy.sh — VM muxpc sur Proxmox $PROXMOX_HOST ━━━"
-echo "  VMID      : $VMID_NEW  ($VM_NAME)"
+echo "  VMID      : $VMID_NEW  ($VM_HOSTNAME)"
+echo "  User      : $VM_USER  /  pass : ${VM_PASS//?/*}"
 echo "  Config    : DE=$MUXPC_DE  qwen=$MUXPC_QWEN  OI=$MUXPC_OI"
 echo ""
 
@@ -53,7 +62,8 @@ echo "━━━ [3/3] Déploiement sur Proxmox ━━━"
 ssh "root@$PROXMOX_HOST" \
   "export SSH_PUB_KEY='$SSH_PUB_KEY'; \
    export INSTALL_SH=\"\$(cat /tmp/install.sh)\"; \
-   VMID_NEW=$VMID_NEW VM_NAME=$VM_NAME \
+   VMID_NEW=$VMID_NEW VM_NAME='$VM_HOSTNAME' VM_HOSTNAME='$VM_HOSTNAME' \
+   VM_USER='$VM_USER' VM_PASS='$VM_PASS' \
    STORAGE=NVME-STORAGE SNIPPETS_STORAGE=local \
    MUXPC_DE=$MUXPC_DE MUXPC_QWEN=$MUXPC_QWEN MUXPC_OI=$MUXPC_OI \
    TAILSCALE_AUTHKEY=$TAILSCALE_AUTHKEY \

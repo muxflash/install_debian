@@ -11,8 +11,11 @@
 set -euo pipefail
 
 VMID_TEMPLATE="${VMID_TEMPLATE:-9000}"
-VMID_NEW="${VMID_NEW:-200}"
-VM_NAME="${VM_NAME:-muxpc}"
+VMID_NEW="${VMID_NEW:-201}"
+VM_NAME="${VM_NAME:-muxGnome}"
+VM_HOSTNAME="${VM_HOSTNAME:-${VM_NAME}}"
+VM_USER="${VM_USER:-muxflash}"
+VM_PASS="${VM_PASS:-axlmux}"
 STORAGE="${STORAGE:-NVME-STORAGE}"
 SNIPPETS_STORAGE="${SNIPPETS_STORAGE:-local}"
 MEMORY="${MEMORY:-4096}"
@@ -34,9 +37,10 @@ fi
 # install.sh embarqué : priorité à la variable INSTALL_SH (passée depuis muxcontainer)
 INSTALL_SH_CONTENT="${INSTALL_SH:-}"
 
-echo "━━━ Déploiement VM muxpc ($VM_NAME) ━━━"
+echo "━━━ Déploiement VM muxpc ($VM_HOSTNAME) ━━━"
 echo "  Template  : $VMID_TEMPLATE → VM $VMID_NEW"
 echo "  Ressources: $CORES CPU / ${MEMORY}Mo RAM"
+echo "  User      : $VM_USER  /  pass : ${VM_PASS//?/*}"
 echo "  Config    : DE=$MUXPC_DE qwen=$MUXPC_QWEN OI=$MUXPC_OI"
 [ -n "$SSH_KEY" ] && echo "  SSH key   : ${SSH_KEY:0:40}..."
 echo ""
@@ -83,18 +87,23 @@ fi
 
 cat > "$USER_DATA_FILE" << USERDATA
 #cloud-config
-hostname: ${VM_NAME}
+hostname: ${VM_HOSTNAME}
 timezone: Europe/Paris
 
 users:
-  - name: muxflash
-    gecos: muxflash
+  - name: ${VM_USER}
+    gecos: ${VM_USER}
     groups: sudo,audio,video,plugdev
     shell: /bin/bash
     sudo: ALL=(ALL) NOPASSWD:ALL
     lock_passwd: false
     ssh_authorized_keys:
       - ${SSH_KEY}
+
+chpasswd:
+  expire: false
+  list: |
+    ${VM_USER}:${VM_PASS}
 
 package_update: true
 package_upgrade: true
@@ -116,11 +125,11 @@ runcmd:
   - update-locale LANG=fr_FR.UTF-8
   - systemctl enable --now qemu-guest-agent || true
   - |
-    sudo -u muxflash env \
+    sudo -u ${VM_USER} env \
       DEBIAN_FRONTEND=noninteractive \
       MUXPC_DE="${MUXPC_DE}" MUXPC_QWEN="${MUXPC_QWEN}" MUXPC_OI="${MUXPC_OI}" \
       ${TAILSCALE_AUTHKEY:+TAILSCALE_AUTHKEY="${TAILSCALE_AUTHKEY}"} \
-      HOME=/home/muxflash \
+      HOME=/home/${VM_USER} \
       bash /tmp/install.sh 2>&1 | tee /tmp/muxpc-install.log
 
 final_message: |
