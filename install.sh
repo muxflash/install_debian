@@ -236,7 +236,10 @@ fi
 # -------------------------------------------------------------
 echo "━━━ [5/15] Starship ━━━"
 if ! command -v starship &>/dev/null; then
-  curl -sS https://starship.rs/install.sh | sh -s -- -y
+  # --bin-dir évite le sudo interne de l'installeur (inutilisable sans TTY)
+  mkdir -p "$HOME/.local/bin"
+  curl -sS https://starship.rs/install.sh | sh -s -- -y --bin-dir "$HOME/.local/bin" || \
+    { echo "  ==> Starship : installation échouée, skip."; true; }
 fi
 grep -qxF 'eval "$(starship init zsh)"' "$ZSHRC" || \
   echo 'eval "$(starship init zsh)"' >> "$ZSHRC"
@@ -288,7 +291,8 @@ esac
 # -------------------------------------------------------------
 echo "━━━ [7/15] zoxide ━━━"
 if ! command -v zoxide &>/dev/null; then
-  curl -sSfL https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | bash
+  curl -sSfL https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | bash || \
+    { echo "  ==> zoxide : installation échouée, skip."; true; }
 fi
 
 # -------------------------------------------------------------
@@ -300,7 +304,8 @@ flatpak remote-add --if-not-exists --user flathub https://flathub.org/repo/flath
 flatpak install -y --user flathub com.rtosta.zapzap
 
 if ! command -v claude &>/dev/null; then
-  curl -fsSL https://claude.ai/install.sh | bash
+  curl -fsSL https://claude.ai/install.sh | bash || \
+    { echo "  ==> Claude Code : installation échouée, skip."; true; }
 fi
 
 if ! command -v tailscale &>/dev/null; then
@@ -330,7 +335,8 @@ fi
 echo "━━━ [8b/15] Ollama + qwen3.6:35b + aider ━━━"
 
 if ! command -v ollama &>/dev/null; then
-  curl -fsSL https://ollama.com/install.sh | sh
+  curl -fsSL https://ollama.com/install.sh | sh || \
+    { echo "  ==> Ollama : installation échouée, skip."; true; }
 fi
 
 # QWEN_MODEL défini + réponse collectée au début du script
@@ -345,7 +351,8 @@ else
 fi
 
 if ! command -v uv &>/dev/null; then
-  curl -LsSf https://astral.sh/uv/install.sh | sh
+  curl -LsSf https://astral.sh/uv/install.sh | sh || \
+    { echo "  ==> uv : installation échouée, skip."; true; }
   export PATH="$HOME/.local/bin:$PATH"
 fi
 
@@ -372,7 +379,8 @@ EOF
 fi
 
 if ! command -v goose &>/dev/null; then
-  curl -fsSL https://github.com/block/goose/releases/latest/download/download_cli.sh | bash
+  curl -fsSL https://github.com/block/goose/releases/latest/download/download_cli.sh | bash || \
+    { echo "  ==> Goose : installation échouée, skip."; true; }
 fi
 
 GOOSE_CONF="$HOME/.config/goose/config.yaml"

@@ -28,8 +28,8 @@ packages:
 
 runcmd:
   - echo 'DEBIAN_FRONTEND=noninteractive' >> /etc/environment
-  - echo 'Defaults env_keep += "DEBIAN_FRONTEND"' > /etc/sudoers.d/debian_frontend
-  - chmod 0440 /etc/sudoers.d/debian_frontend
+  - printf 'Defaults env_keep += "DEBIAN_FRONTEND"\nDefaults !requiretty\n' > /etc/sudoers.d/muxpc_cloud_init
+  - chmod 0440 /etc/sudoers.d/muxpc_cloud_init
   - systemctl enable --now qemu-guest-agent
   - |
     sudo -u muxflash env \

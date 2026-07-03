@@ -109,8 +109,8 @@ ${INSTALL_SH_BLOCK}
 
 runcmd:
   - echo 'DEBIAN_FRONTEND=noninteractive' >> /etc/environment
-  - echo 'Defaults env_keep += "DEBIAN_FRONTEND"' > /etc/sudoers.d/debian_frontend
-  - chmod 0440 /etc/sudoers.d/debian_frontend
+  - printf 'Defaults env_keep += "DEBIAN_FRONTEND"\nDefaults !requiretty\n' > /etc/sudoers.d/muxpc_cloud_init
+  - chmod 0440 /etc/sudoers.d/muxpc_cloud_init
   - sed -i 's/^# fr_FR.UTF-8 UTF-8/fr_FR.UTF-8 UTF-8/' /etc/locale.gen
   - locale-gen fr_FR.UTF-8
   - update-locale LANG=fr_FR.UTF-8
