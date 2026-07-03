@@ -514,8 +514,8 @@ ExecStop=/usr/bin/tmux kill-session -t claude
 WantedBy=default.target
 EOF
 
-systemctl --user daemon-reload
-systemctl --user enable --now claude-tmux.service
+systemctl --user daemon-reload 2>/dev/null || true
+systemctl --user enable --now claude-tmux.service 2>/dev/null || true
 
 mkdir -p "$HOME/.config/autostart"
 case "$DE" in
@@ -687,46 +687,46 @@ SLIDEEOF
     install_gnome_ext "just-perfection-desktop@just-perfection"   3843  # masquer éléments superflus
 
     # Thème et icônes
-    gsettings set org.gnome.desktop.interface color-scheme      'prefer-dark'
-    gsettings set org.gnome.desktop.interface gtk-theme         'Dracula'
-    gsettings set org.gnome.desktop.interface icon-theme        'Papirus-Dark'
-    gsettings set org.gnome.desktop.interface cursor-theme      'Adwaita'
-    gsettings set org.gnome.desktop.interface font-name         'Cantarell 11'
-    gsettings set org.gnome.desktop.interface monospace-font-name 'JetBrainsMono Nerd Font 11'
+    gsettings set org.gnome.desktop.interface color-scheme      'prefer-dark' || true
+    gsettings set org.gnome.desktop.interface gtk-theme         'Dracula' || true
+    gsettings set org.gnome.desktop.interface icon-theme        'Papirus-Dark' || true
+    gsettings set org.gnome.desktop.interface cursor-theme      'Adwaita' || true
+    gsettings set org.gnome.desktop.interface font-name         'Cantarell 11' || true
+    gsettings set org.gnome.desktop.interface monospace-font-name 'JetBrainsMono Nerd Font 11' || true
     gsettings set org.gnome.shell.extensions.user-theme name    'Dracula' 2>/dev/null || true
 
     # Fond d'écran
-    gsettings set org.gnome.desktop.background picture-uri      "file://$WALLPAPER_DIR/$WALLPAPER_IMAGE"
-    gsettings set org.gnome.desktop.background picture-uri-dark "file://$WALLPAPER_DIR/$WALLPAPER_IMAGE"
-    gsettings set org.gnome.desktop.background picture-options  'zoom'
-    gsettings set org.gnome.desktop.screensaver picture-uri     "file://$WALLPAPER_DIR/$WALLPAPER_IMAGE"
+    gsettings set org.gnome.desktop.background picture-uri      "file://$WALLPAPER_DIR/$WALLPAPER_IMAGE" || true
+    gsettings set org.gnome.desktop.background picture-uri-dark "file://$WALLPAPER_DIR/$WALLPAPER_IMAGE" || true
+    gsettings set org.gnome.desktop.background picture-options  'zoom' || true
+    gsettings set org.gnome.desktop.screensaver picture-uri     "file://$WALLPAPER_DIR/$WALLPAPER_IMAGE" || true
 
     # Ergonomie fenêtres
-    gsettings set org.gnome.desktop.wm.preferences button-layout 'appmenu:minimize,maximize,close'
-    gsettings set org.gnome.desktop.wm.preferences num-workspaces 4
-    gsettings set org.gnome.mutter dynamic-workspaces false
-    gsettings set org.gnome.desktop.interface enable-hot-corners false
+    gsettings set org.gnome.desktop.wm.preferences button-layout 'appmenu:minimize,maximize,close' || true
+    gsettings set org.gnome.desktop.wm.preferences num-workspaces 4 || true
+    gsettings set org.gnome.mutter dynamic-workspaces false || true
+    gsettings set org.gnome.desktop.interface enable-hot-corners false || true
 
     # Horloge + calendrier
-    gsettings set org.gnome.desktop.interface clock-show-weekday true
-    gsettings set org.gnome.desktop.interface clock-show-seconds false
-    gsettings set org.gnome.desktop.calendar show-weekdate true
+    gsettings set org.gnome.desktop.interface clock-show-weekday true || true
+    gsettings set org.gnome.desktop.interface clock-show-seconds false || true
+    gsettings set org.gnome.desktop.calendar show-weekdate true || true
 
     # Night Light (21h–7h, 3500 K)
-    gsettings set org.gnome.settings-daemon.plugins.color night-light-enabled           true
-    gsettings set org.gnome.settings-daemon.plugins.color night-light-schedule-automatic false
-    gsettings set org.gnome.settings-daemon.plugins.color night-light-schedule-from     21.0
-    gsettings set org.gnome.settings-daemon.plugins.color night-light-schedule-to        7.0
-    gsettings set org.gnome.settings-daemon.plugins.color night-light-temperature       3500
+    gsettings set org.gnome.settings-daemon.plugins.color night-light-enabled           true || true
+    gsettings set org.gnome.settings-daemon.plugins.color night-light-schedule-automatic false || true
+    gsettings set org.gnome.settings-daemon.plugins.color night-light-schedule-from     21.0 || true
+    gsettings set org.gnome.settings-daemon.plugins.color night-light-schedule-to        7.0 || true
+    gsettings set org.gnome.settings-daemon.plugins.color night-light-temperature       3500 || true
 
     # Raccourcis navigation bureaux (comme KDE)
-    gsettings set org.gnome.desktop.wm.keybindings switch-to-workspace-left   "['<Control><Alt>Left']"
-    gsettings set org.gnome.desktop.wm.keybindings switch-to-workspace-right  "['<Control><Alt>Right']"
-    gsettings set org.gnome.desktop.wm.keybindings move-to-workspace-left     "['<Control><Shift><Alt>Left']"
-    gsettings set org.gnome.desktop.wm.keybindings move-to-workspace-right    "['<Control><Shift><Alt>Right']"
+    gsettings set org.gnome.desktop.wm.keybindings switch-to-workspace-left   "['<Control><Alt>Left']" || true
+    gsettings set org.gnome.desktop.wm.keybindings switch-to-workspace-right  "['<Control><Alt>Right']" || true
+    gsettings set org.gnome.desktop.wm.keybindings move-to-workspace-left     "['<Control><Shift><Alt>Left']" || true
+    gsettings set org.gnome.desktop.wm.keybindings move-to-workspace-right    "['<Control><Shift><Alt>Right']" || true
     # Fermer fenêtre + plein écran
-    gsettings set org.gnome.desktop.wm.keybindings close              "['<Super>q']"
-    gsettings set org.gnome.desktop.wm.keybindings toggle-fullscreen  "['<Super>f']"
+    gsettings set org.gnome.desktop.wm.keybindings close              "['<Super>q']" || true
+    gsettings set org.gnome.desktop.wm.keybindings toggle-fullscreen  "['<Super>f']" || true
 
     # Dash-to-dock : dock bas auto-masqué, style plat
     gsettings set org.gnome.shell.extensions.dash-to-dock dock-position  'BOTTOM'  2>/dev/null || true
