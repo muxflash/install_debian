@@ -108,12 +108,16 @@ write_files:
 ${INSTALL_SH_BLOCK}
 
 runcmd:
+  - echo 'DEBIAN_FRONTEND=noninteractive' >> /etc/environment
+  - echo 'Defaults env_keep += "DEBIAN_FRONTEND"' > /etc/sudoers.d/debian_frontend
+  - chmod 0440 /etc/sudoers.d/debian_frontend
   - sed -i 's/^# fr_FR.UTF-8 UTF-8/fr_FR.UTF-8 UTF-8/' /etc/locale.gen
   - locale-gen fr_FR.UTF-8
   - update-locale LANG=fr_FR.UTF-8
   - systemctl enable --now qemu-guest-agent || true
   - |
     sudo -u muxflash env \
+      DEBIAN_FRONTEND=noninteractive \
       MUXPC_DE="${MUXPC_DE}" MUXPC_QWEN="${MUXPC_QWEN}" MUXPC_OI="${MUXPC_OI}" \
       HOME=/home/muxflash \
       bash /tmp/install.sh 2>&1 | tee /tmp/muxpc-install.log

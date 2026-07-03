@@ -27,17 +27,16 @@ packages:
   - qemu-guest-agent
 
 runcmd:
+  - echo 'DEBIAN_FRONTEND=noninteractive' >> /etc/environment
+  - echo 'Defaults env_keep += "DEBIAN_FRONTEND"' > /etc/sudoers.d/debian_frontend
+  - chmod 0440 /etc/sudoers.d/debian_frontend
   - systemctl enable --now qemu-guest-agent
   - |
-    sudo -u muxflash bash -c '
-      export MUXPC_DE="gnome"
-      export MUXPC_QWEN="n"
-      export MUXPC_OI="n"
-      export HOME=/home/muxflash
-      cd /tmp
-      git clone https://github.com/muxflash/rancher.git rancher-setup
-      bash /tmp/rancher-setup/muxpc/install.sh 2>&1 | tee /tmp/muxpc-install.log
-    '
+    sudo -u muxflash env \
+      DEBIAN_FRONTEND=noninteractive \
+      MUXPC_DE="gnome" MUXPC_QWEN="n" MUXPC_OI="n" \
+      HOME=/home/muxflash \
+      bash /tmp/install.sh 2>&1 | tee /tmp/muxpc-install.log
 
 final_message: |
   ✅ muxpc prêt ! Log complet : /tmp/muxpc-install.log

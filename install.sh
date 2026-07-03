@@ -5,7 +5,8 @@
 # Idempotent : peut être relancé sans dupliquer quoi que ce soit
 # =============================================================
 set -euo pipefail
-export DEBIAN_FRONTEND=noninteractive   # évite les prompts dpkg/apt en mode non-interactif
+export DEBIAN_FRONTEND=noninteractive
+# sudo strips env vars by default — prefix each sudo apt call explicitly too (see below)
 
 GITHUB_RAW="https://raw.githubusercontent.com/muxflash/rancher/muxpc/muxpc"
 WALLPAPER_IMAGE="wallpaperswide.com-assassins-creed-unity-arno-wallpaper-5120x1440.jpg"
@@ -92,7 +93,7 @@ if lspci 2>/dev/null | grep -iq nvidia; then
   fi
   if ! dpkg -l nvidia-driver &>/dev/null; then
     echo "==> Installation des drivers NVIDIA (nvidia-driver + firmware)..."
-    sudo apt install -y nvidia-driver firmware-nvidia-graphics
+    sudo DEBIAN_FRONTEND=noninteractive apt install -y nvidia-driver firmware-nvidia-graphics
   else
     echo "==> Drivers NVIDIA déjà installés ($(nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null || echo '?')), skip."
   fi
@@ -110,7 +111,7 @@ sudo apt update && sudo apt upgrade -y
 # 1. Paquets de base
 # -------------------------------------------------------------
 echo "━━━ [2/15] Paquets de base ━━━"
-sudo apt install -y \
+sudo DEBIAN_FRONTEND=noninteractive apt install -y \
   git curl unzip wget zip rsync screen vim vlc plocate \
   zsh zsh-autosuggestions zsh-syntax-highlighting fzf \
   flatpak python3-pip python3-venv tmux \
@@ -118,10 +119,10 @@ sudo apt install -y \
 
 case "$DE" in
   kde)
-    sudo apt install -y \
+    sudo DEBIAN_FRONTEND=noninteractive apt install -y \
       yakuake kdeconnect filelight plasma-systemmonitor ;;
   gnome)
-    sudo apt install -y \
+    sudo DEBIAN_FRONTEND=noninteractive apt install -y \
       gnome-tweaks gnome-shell-extension-manager tilix \
       dconf-editor chrome-gnome-shell || \
       { sudo dpkg --configure -a 2>/dev/null || true; } ;;
@@ -135,7 +136,7 @@ if ! command -v fastfetch &>/dev/null; then
     | grep "browser_download_url.*${ARCH}.*\.deb" | head -n1 | cut -d '"' -f4) || true
   if [ -n "${FASTFETCH_URL:-}" ]; then
     curl -fLo /tmp/fastfetch.deb "$FASTFETCH_URL"
-    sudo apt install -y /tmp/fastfetch.deb
+    sudo DEBIAN_FRONTEND=noninteractive apt install -y /tmp/fastfetch.deb
     rm -f /tmp/fastfetch.deb
   fi
 fi
@@ -308,7 +309,7 @@ if ! command -v tailscale &>/dev/null; then
     | sudo tee /usr/share/keyrings/tailscale-archive-keyring.gpg >/dev/null
   curl -fsSL https://pkgs.tailscale.com/stable/debian/trixie.tailscale-keyring.list \
     | sudo tee /etc/apt/sources.list.d/tailscale.list >/dev/null
-  sudo apt update && sudo apt install -y tailscale
+  sudo apt update && sudo DEBIAN_FRONTEND=noninteractive apt install -y tailscale
 fi
 
 # Bug connu Debian Trixie
@@ -727,7 +728,7 @@ esac
 # -------------------------------------------------------------
 echo "━━━ [16/17] Thunderbird (laurent@billot.net) ━━━"
 
-sudo apt install -y thunderbird
+sudo DEBIAN_FRONTEND=noninteractive apt install -y thunderbird
 
 # Profil Thunderbird : pré-configure IMAP + SMTP via autoconfig
 TB_PROFILE_DIR=$(find "$HOME/.thunderbird" -maxdepth 1 -name "*.default-release" 2>/dev/null | head -n1)
@@ -783,17 +784,17 @@ echo "━━━ [17/17] Lutris + Steam ━━━"
 sudo dpkg --add-architecture i386
 sudo apt update -q
 
-sudo apt install -y \
+sudo DEBIAN_FRONTEND=noninteractive apt install -y \
   steam-installer \
   lutris \
   gamemode \
   libgamemode0:i386 2>/dev/null || \
-sudo apt install -y steam-installer lutris gamemode
+sudo DEBIAN_FRONTEND=noninteractive apt install -y steam-installer lutris gamemode
 
 # Mangohud (overlay FPS/VRAM/CPU/GPU en jeu)
 if ! command -v mangohud &>/dev/null; then
   if apt-cache show mangohud &>/dev/null 2>&1; then
-    sudo apt install -y mangohud
+    sudo DEBIAN_FRONTEND=noninteractive apt install -y mangohud
   fi
 fi
 
