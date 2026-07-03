@@ -20,7 +20,7 @@ ZSHRC="$HOME/.zshrc"
 # Headscale auth key — RÉGÉNÉRER si expiré :
 # https://vpn.billot.net:8090 → New auth key (expiry 24h suffit)
 # Passer via env : TAILSCALE_AUTHKEY=hskey-auth-xxx bash install.sh
-TAILSCALE_AUTHKEY="${TAILSCALE_AUTHKEY:-hskey-auth-KvGB3jXeQhXT-wtQzRFALXCN-p5suT1fDnskW7X7QPV3eYq03bmN5fFdf_thnrXGpKvIr7x4xOcxE}"
+TAILSCALE_AUTHKEY="${TAILSCALE_AUTHKEY:-hskey-auth-yZlhjwxvQmB1-d8SDKReUiK9niHhoaqCs2QR18nOjwAB-mSS0P_vcXSd07vKk0gdOUF4rQ_xmo9sZ}"
 TAILSCALE_SERVER="https://vpn.billot.net:8090"
 
 echo ""
