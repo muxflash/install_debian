@@ -11,9 +11,12 @@ export DEBIAN_FRONTEND=noninteractive
 GITHUB_RAW="https://raw.githubusercontent.com/muxflash/install_debian/main"
 WALLPAPER_IMAGE="wallpaperswide.com-assassins-creed-unity-arno-wallpaper-5120x1440.jpg"
 WALLPAPER_DIR="$HOME/Images/Wallpaper"
-CLAUDE_DIR="$HOME/claude"
-REPO_DIR="$CLAUDE_DIR/github/rancher"
-REPO_SSH="git@github.com:muxflash/rancher.git"
+GITHUB_USER="muxflash"
+GITHUB_DIR="$HOME/_Github"
+# Token GitHub optionnel (repos privés inclus dans le clone) :
+# https://github.com/settings/tokens → scope "repo" minimum.
+# Passer via env : GITHUB_TOKEN=ghp_xxx bash install.sh
+GITHUB_TOKEN="${GITHUB_TOKEN:-}"
 VENV="$HOME/.venv-tools"
 ZSHRC="$HOME/.zshrc"
 
@@ -33,14 +36,6 @@ echo ""
 # Mode non-interactif via env : MUXPC_DE=kde|gnome  MUXPC_QWEN=y|n  MUXPC_OI=y|n
 
 QWEN_MODEL="qwen3.6:35b"
-
-# ── Paramètre --from=N : reprendre à l'étape N (0-20) ───────────────────────
-_FROM=0
-for _a in "$@"; do case "$_a" in --from=*) _FROM="${_a#--from=}" ;; esac; done
-_FROM="${MUXPC_FROM:-$_FROM}"
-_S=-1
-# Retourne 0 (exécuter) ou 1 (skip), affiche un message si skip
-_step() { _S=$((_S+1)); [ "$_S" -ge "$_FROM" ] || { printf '  ⏭  étape %d ignorée (--from=%d)\n' "$_S" "$_FROM"; return 1; }; }
 
 if [ -n "${MUXPC_DE:-}" ]; then
   case "${MUXPC_DE}" in
@@ -71,7 +66,6 @@ fi
 
 echo ""
 
-if _step; then
 # -------------------------------------------------------------
 # 0. Dépôts non-free + drivers NVIDIA + GRUB
 # -------------------------------------------------------------
@@ -102,12 +96,8 @@ if lspci 2>/dev/null | grep -iq nvidia; then
     sudo update-grub
   fi
   if ! dpkg -l nvidia-driver &>/dev/null; then
-    echo "==> Installation des drivers NVIDIA..."
-    sudo DEBIAN_FRONTEND=noninteractive apt install -y nvidia-driver || \
-      { echo "  ==> nvidia-driver introuvable, essai via backports..."; \
-        sudo DEBIAN_FRONTEND=noninteractive apt install -y -t bookworm-backports nvidia-driver || \
-        echo "  ==> NVIDIA driver non installé — à faire manuellement"; }
-    sudo DEBIAN_FRONTEND=noninteractive apt install -y firmware-misc-nonfree 2>/dev/null || true
+    echo "==> Installation des drivers NVIDIA (nvidia-driver + firmware)..."
+    sudo DEBIAN_FRONTEND=noninteractive apt install -y nvidia-driver firmware-nvidia-graphics
   else
     echo "==> Drivers NVIDIA déjà installés ($(nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null || echo '?')), skip."
   fi
@@ -115,18 +105,12 @@ else
   echo "==> Pas de GPU NVIDIA détecté, skip drivers + GRUB param."
 fi
 
-fi
-
-if _step; then
 # -------------------------------------------------------------
 # 1. Mise à jour système
 # -------------------------------------------------------------
 echo "━━━ [1/15] Mise à jour système ━━━"
 sudo apt update && sudo apt upgrade -y
 
-fi
-
-if _step; then
 # -------------------------------------------------------------
 # 1. Paquets de base
 # -------------------------------------------------------------
@@ -161,9 +145,6 @@ if ! command -v fastfetch &>/dev/null; then
   fi
 fi
 
-fi
-
-if _step; then
 # -------------------------------------------------------------
 # 2. zsh + Oh My Zsh + plugins
 # -------------------------------------------------------------
@@ -240,9 +221,6 @@ command -v fastfetch &>/dev/null && fastfetch
 EOF
 fi
 
-fi
-
-if _step; then
 # -------------------------------------------------------------
 # 3. Police JetBrainsMono Nerd Font
 # -------------------------------------------------------------
@@ -257,9 +235,6 @@ if ! fc-list | grep -qi "JetBrainsMono Nerd Font"; then
   fc-cache -f "$FONT_DIR"
 fi
 
-fi
-
-if _step; then
 # -------------------------------------------------------------
 # 4. Starship prompt
 # -------------------------------------------------------------
@@ -273,9 +248,6 @@ fi
 grep -qxF 'eval "$(starship init zsh)"' "$ZSHRC" || \
   echo 'eval "$(starship init zsh)"' >> "$ZSHRC"
 
-fi
-
-if _step; then
 # -------------------------------------------------------------
 # 5. Thème terminal (Dracula)
 # -------------------------------------------------------------
@@ -318,9 +290,6 @@ case "$DE" in
     ;;
 esac
 
-fi
-
-if _step; then
 # -------------------------------------------------------------
 # 6. zoxide
 # -------------------------------------------------------------
@@ -330,9 +299,6 @@ if ! command -v zoxide &>/dev/null; then
     { echo "  ==> zoxide : installation échouée, skip."; true; }
 fi
 
-fi
-
-if _step; then
 # -------------------------------------------------------------
 # 7. Flatpak + ZapZap (WhatsApp) + Claude Code + Tailscale
 # -------------------------------------------------------------
@@ -418,10 +384,8 @@ EOF
 fi
 
 if ! command -v goose &>/dev/null; then
-  curl -fsSL https://github.com/block/goose/releases/latest/download/download_cli.sh -o /tmp/goose-install.sh && \
-    printf 'n\nollama\nhttp://localhost:11434\nn\nqwen3.6:35b\n\n\n' | GOOSE_PROVIDER=ollama GOOSE_MODEL=qwen3.6:35b bash /tmp/goose-install.sh || \
-    echo "  ==> Goose : installation échouée, skip."
-  rm -f /tmp/goose-install.sh 2>/dev/null || true
+  curl -fsSL https://github.com/block/goose/releases/latest/download/download_cli.sh | bash || \
+    { echo "  ==> Goose : installation échouée, skip."; true; }
 fi
 
 GOOSE_CONF="$HOME/.config/goose/config.yaml"
@@ -446,9 +410,6 @@ else
   echo "==> open-interpreter skipped (relancer plus tard : uv tool install open-interpreter)"
 fi
 
-fi
-
-if _step; then
 # -------------------------------------------------------------
 # 8d. Playwright (screenshots headless)
 # -------------------------------------------------------------
@@ -459,9 +420,6 @@ if [ ! -d "$VENV" ]; then
   "$VENV/bin/playwright" install chromium
 fi
 
-fi
-
-if _step; then
 # -------------------------------------------------------------
 # 9. Claude Code settings (~/.claude/settings.json)
 # -------------------------------------------------------------
@@ -469,31 +427,34 @@ echo "━━━ [10/15] Claude Code settings ━━━"
 mkdir -p "$HOME/.claude"
 CLAUDE_SETTINGS="$HOME/.claude/settings.json"
 
+# Détecte le display X réel de la session graphique active (":0", ":1", ...)
+# plutôt que de coder ":0" en dur — ça dépend du gestionnaire de connexion
+# et peut varier d'une machine/session à l'autre.
+DETECTED_DISPLAY=$(who | grep -oP '\(\K:[0-9]+(?=\))' | head -n1)
+DETECTED_DISPLAY="${DETECTED_DISPLAY:-:0}"
+
 if [ -f "$CLAUDE_SETTINGS" ]; then
-  python3 - "$CLAUDE_SETTINGS" <<'EOF'
+  python3 - "$CLAUDE_SETTINGS" "$DETECTED_DISPLAY" <<'EOF'
 import json, sys
-path = sys.argv[1]
+path, display = sys.argv[1], sys.argv[2]
 with open(path) as f:
     cfg = json.load(f)
-cfg.setdefault("env", {})["DISPLAY"] = ":0"
+cfg.setdefault("env", {})["DISPLAY"] = display
 cfg.setdefault("permissions", {})["defaultMode"] = "dontAsk"
 with open(path, "w") as f:
     json.dump(cfg, f, indent=2, ensure_ascii=False)
 print("settings.json mis à jour")
 EOF
 else
-  cat > "$CLAUDE_SETTINGS" << 'EOF'
+  cat > "$CLAUDE_SETTINGS" << EOF
 {
   "theme": "auto",
-  "env": { "DISPLAY": ":0" },
+  "env": { "DISPLAY": "$DETECTED_DISPLAY" },
   "permissions": { "defaultMode": "dontAsk" }
 }
 EOF
 fi
 
-fi
-
-if _step; then
 # -------------------------------------------------------------
 # 10. Dossier wallpaper + image
 # -------------------------------------------------------------
@@ -505,63 +466,87 @@ if [ ! -f "$WALLPAPER_DIR/$WALLPAPER_IMAGE" ]; then
     echo "  ==> Wallpaper non trouvé — placer $WALLPAPER_IMAGE dans $WALLPAPER_DIR/ manuellement."
 fi
 
-fi
-
-if _step; then
 # -------------------------------------------------------------
-# 11. Git SSH + clone rancher
+# 11. Git SSH + clone de tous les repos GitHub de muxflash dans ~/_Github
 # -------------------------------------------------------------
-echo "━━━ [12/15] Git + clone rancher ━━━"
+echo "━━━ [12/15] Git + clone ~/_Github ━━━"
 mkdir -p "$HOME/.ssh"
-chmod 700 "$HOME/.ssh"
 if [ ! -f "$HOME/.ssh/id_ed25519" ] && [ ! -f "$HOME/.ssh/id_rsa" ]; then
-  ssh-keygen -t ed25519 -C "muxflash@$(hostname)" -f "$HOME/.ssh/id_ed25519" -N ""
-fi
-
-# Upload automatique de la clé publique sur GitHub via API
-# GITHUB_TOKEN doit avoir le scope write:public_key
-# Passer via env : GITHUB_TOKEN=ghp_xxx bash install.sh
-GITHUB_TOKEN="${GITHUB_TOKEN:-}"
-PUBKEY_FILE="$HOME/.ssh/id_ed25519.pub"
-[ ! -f "$PUBKEY_FILE" ] && PUBKEY_FILE="$HOME/.ssh/id_rsa.pub"
-if [ -n "$GITHUB_TOKEN" ] && [ -f "$PUBKEY_FILE" ]; then
-  PUBKEY=$(cat "$PUBKEY_FILE")
-  KEY_TITLE="muxflash-$(hostname)-$(date +%Y%m%d)"
-  HTTP_CODE=$(curl -s -o /tmp/gh-key-response.json -w "%{http_code}" \
-    -X POST https://api.github.com/user/keys \
-    -H "Authorization: token $GITHUB_TOKEN" \
-    -H "Content-Type: application/json" \
-    -d "{\"title\":\"$KEY_TITLE\",\"key\":\"$PUBKEY\"}")
-  if [ "$HTTP_CODE" = "201" ]; then
-    echo "  ==> Clé SSH ajoutée sur GitHub : $KEY_TITLE"
+  ssh-keygen -t ed25519 -C "$(whoami)@$(hostname)" -f "$HOME/.ssh/id_ed25519" -N ""
+  echo ""
+  echo "🔑 Ajoute cette clé publique sur GitHub avant de continuer :"
+  echo "   https://github.com/settings/keys"
+  echo ""
+  cat "$HOME/.ssh/id_ed25519.pub"
+  echo ""
+  if [ -z "${MUXPC_DE:-}" ]; then
+    read -r -p "Appuie sur Entrée une fois la clé ajoutée... "
   else
-    echo "  ==> GitHub API : HTTP $HTTP_CODE — $(cat /tmp/gh-key-response.json 2>/dev/null)"
-    echo "  ==> Clé à ajouter manuellement : https://github.com/settings/keys"
-    echo "  $PUBKEY"
+    echo "  ==> Mode non-interactif : ajoutez la clé GitHub ci-dessus manuellement avant de continuer."
   fi
-  rm -f /tmp/gh-key-response.json
-else
-  echo "  ==> GITHUB_TOKEN non défini — clé à ajouter manuellement :"
-  echo "      https://github.com/settings/keys"
-  [ -f "$PUBKEY_FILE" ] && echo "  $(cat "$PUBKEY_FILE")"
 fi
 
 grep -q "github.com" "$HOME/.ssh/known_hosts" 2>/dev/null || \
   ssh-keyscan -H github.com >> "$HOME/.ssh/known_hosts" 2>/dev/null
 
-mkdir -p "$CLAUDE_DIR"
-if [ -d "$REPO_DIR/.git" ]; then
-  git -C "$REPO_DIR" pull --quiet
-elif [ -z "${MUXPC_DE:-}" ]; then
-  git clone "$REPO_SSH" "$REPO_DIR"
-else
-  git clone "$REPO_SSH" "$REPO_DIR" 2>/dev/null || \
-    echo "  ==> Clone rancher ignoré (clé SSH pas encore dans GitHub — à faire manuellement)"
+mkdir -p "$GITHUB_DIR"
+
+# Liste des repos via l'API GitHub : /user/repos (avec token, inclut les
+# privés) ou /users/<user>/repos (sans token, publics seulement), paginée.
+REPOS_JSON=$(mktemp)
+page=1
+while :; do
+  if [ -n "$GITHUB_TOKEN" ]; then
+    URL="https://api.github.com/user/repos?affiliation=owner&per_page=100&page=$page"
+    AUTH_HEADER="Authorization: token $GITHUB_TOKEN"
+  else
+    URL="https://api.github.com/users/$GITHUB_USER/repos?per_page=100&page=$page"
+    AUTH_HEADER=""
+  fi
+  RESPONSE=$(curl -fsSL ${AUTH_HEADER:+-H "$AUTH_HEADER"} "$URL" 2>/dev/null) || break
+  COUNT=$(echo "$RESPONSE" | python3 -c "import json,sys; print(len(json.load(sys.stdin)))" 2>/dev/null || echo 0)
+  [ "$COUNT" -eq 0 ] && break
+  echo "$RESPONSE" >> "$REPOS_JSON"
+  [ "$COUNT" -lt 100 ] && break
+  page=$((page + 1))
+done
+
+if [ -z "$GITHUB_TOKEN" ]; then
+  echo "  ==> Pas de GITHUB_TOKEN : seuls les repos publics de $GITHUB_USER seront clonés."
 fi
 
-fi
+python3 -c "
+import json, glob
+names = []
+with open('$REPOS_JSON') as f:
+    content = f.read()
+# Le fichier peut contenir plusieurs tableaux JSON concaténés (une page par ligne)
+decoder = json.JSONDecoder()
+idx = 0
+content = content.strip()
+while idx < len(content):
+    obj, end = decoder.raw_decode(content, idx)
+    for repo in obj:
+        print(repo['name'], repo['ssh_url'])
+    idx = end
+    while idx < len(content) and content[idx] in ' \n\t':
+        idx += 1
+" > "$REPOS_JSON.parsed" 2>/dev/null
 
-if _step; then
+while IFS=' ' read -r name ssh_url; do
+  [ -z "$name" ] && continue
+  REPO_DIR="$GITHUB_DIR/$name"
+  if [ -d "$REPO_DIR/.git" ]; then
+    git -C "$REPO_DIR" pull --quiet || echo "  ==> $name : pull échoué, skip."
+  else
+    git clone --quiet "$ssh_url" "$REPO_DIR" 2>/dev/null || \
+      echo "  ==> $name : clone échoué (clé SSH pas encore dans GitHub ?), skip."
+  fi
+done < "$REPOS_JSON.parsed"
+
+echo "  ==> $(wc -l < "$REPOS_JSON.parsed" 2>/dev/null || echo 0) repo(s) synchronisé(s) dans $GITHUB_DIR"
+rm -f "$REPOS_JSON" "$REPOS_JSON.parsed"
+
 # -------------------------------------------------------------
 # 12. Service systemd : Claude Code dans tmux au démarrage
 # -------------------------------------------------------------
@@ -605,9 +590,6 @@ Exec=${_term_exec}
 NoDisplay=true
 EOF
 
-fi
-
-if _step; then
 # -------------------------------------------------------------
 # 13. Fix veille NVIDIA + Wayland (NVreg_PreserveVideoMemoryAllocations)
 # -------------------------------------------------------------
@@ -632,9 +614,6 @@ else
   echo "==> Pas de GPU NVIDIA détecté, skip."
 fi
 
-fi
-
-if _step; then
 # -------------------------------------------------------------
 # 14. Configuration du bureau
 # -------------------------------------------------------------
@@ -763,6 +742,9 @@ SLIDEEOF
     install_gnome_ext "clipboard-indicator@tudmotu.com"           779   # historique presse-papier
     install_gnome_ext "just-perfection-desktop@just-perfection"   3843  # masquer éléments superflus
 
+    # Workspace Indicator (fournie par le paquet gnome-shell-extensions, pas besoin de téléchargement)
+    gnome-extensions enable workspace-indicator@gnome-shell-extensions.gcampax.github.com 2>/dev/null || true
+
     # Thème et icônes
     gsettings set org.gnome.desktop.interface color-scheme      'prefer-dark' || true
     gsettings set org.gnome.desktop.interface gtk-theme         'Dracula' || true
@@ -818,9 +800,6 @@ SLIDEEOF
     ;;
 esac
 
-fi
-
-if _step; then
 # -------------------------------------------------------------
 # 15. Thunderbird — compte laurent@billot.net (mail.billot.net / Stalwart)
 # -------------------------------------------------------------
@@ -829,11 +808,11 @@ echo "━━━ [16/17] Thunderbird (laurent@billot.net) ━━━"
 sudo DEBIAN_FRONTEND=noninteractive apt install -y thunderbird
 
 # Profil Thunderbird : pré-configure IMAP + SMTP via autoconfig
-TB_PROFILE_DIR=$(find "$HOME/.thunderbird" -maxdepth 1 -name "*.default-release" 2>/dev/null | head -n1 || true)
+TB_PROFILE_DIR=$(find "$HOME/.thunderbird" -maxdepth 1 -name "*.default-release" 2>/dev/null | head -n1)
 if [ -z "${TB_PROFILE_DIR:-}" ]; then
   # Premier lancement silencieux pour créer le profil
-  timeout 10 thunderbird --headless 2>/dev/null || true
-  TB_PROFILE_DIR=$(find "$HOME/.thunderbird" -maxdepth 1 -name "*.default-release" 2>/dev/null | head -n1 || true)
+  timeout 5 thunderbird --headless 2>/dev/null || true
+  TB_PROFILE_DIR=$(find "$HOME/.thunderbird" -maxdepth 1 -name "*.default-release" 2>/dev/null | head -n1)
 fi
 
 if [ -n "${TB_PROFILE_DIR:-}" ]; then
@@ -873,9 +852,6 @@ TBPREFS
   fi
 fi
 
-fi
-
-if _step; then
 # -------------------------------------------------------------
 # 16. Lutris + Steam (gaming)
 # -------------------------------------------------------------
@@ -892,6 +868,28 @@ sudo DEBIAN_FRONTEND=noninteractive apt install -y \
   gamemode \
   libgamemode0:i386 2>/dev/null || \
 sudo DEBIAN_FRONTEND=noninteractive apt install -y steam-installer lutris gamemode
+
+# Bibliothèques NVIDIA 32 bits (requises par Wine 32 bits, ex: Battle.net-Setup.exe)
+# Sans ça : "libGL error: failed to load driver: nouveau" et crash immédiat du process Wine.
+if lspci 2>/dev/null | grep -iq nvidia && ! dpkg -l nvidia-driver-libs:i386 &>/dev/null; then
+  sudo DEBIAN_FRONTEND=noninteractive apt install -y nvidia-driver-libs:i386
+fi
+
+# WineHQ Staging (dépôt officiel) : le runner wine-ge embarqué dans Lutris
+# échoue la vérification de signature Authenticode que l'Agent Battle.net
+# exige avant d'autoriser ses requêtes locales ("Failed Caller authorization
+# due to signature for 'Battle.net.exe'", 401 en boucle côté client). Wine
+# Staging corrige ça — utiliser ce wine système (pas wine-ge) pour Battle.net.
+if ! grep -rq "dl.winehq.org" /etc/apt/sources.list.d/ 2>/dev/null; then
+  sudo apt install -y ca-certificates
+  sudo mkdir -pm755 /etc/apt/keyrings
+  sudo wget -O /etc/apt/keyrings/winehq-archive.key https://dl.winehq.org/wine-builds/winehq.key
+  sudo wget -NP /etc/apt/sources.list.d/ https://dl.winehq.org/wine-builds/debian/dists/bookworm/winehq-bookworm.sources
+  sudo apt update -q
+fi
+if ! dpkg -l winehq-staging &>/dev/null; then
+  sudo DEBIAN_FRONTEND=noninteractive apt install -y --install-recommends winehq-staging
+fi
 
 # Mangohud (overlay FPS/VRAM/CPU/GPU en jeu)
 if ! command -v mangohud &>/dev/null; then
@@ -919,9 +917,6 @@ if [ -z "$(ls -A "$PROTON_GE_DIR" 2>/dev/null)" ]; then
   fi
 fi
 
-fi
-
-if _step; then
 # =============================================================
 echo ""
 echo "━━━ [18/17] Autostart session bureaux ━━━"
@@ -1052,9 +1047,6 @@ DESKTOPEOF
 echo "  ==> Autostart configuré : ~/.config/autostart/muxpc-session.desktop"
 echo "  ==> Script : ~/.local/bin/muxpc-session.sh"
 
-fi
-
-if _step; then
 # =============================================================
 echo ""
 echo "━━━ [19/17] xRDP (prise en main à distance) ━━━"
@@ -1108,9 +1100,6 @@ echo "  ==> xRDP actif sur le port 3389"
 echo "  ==> Windows : mstsc /v:$(hostname -I | awk '{print $1}')"
 echo "  ==> Linux   : remmina ou rdesktop $(hostname -I | awk '{print $1}'):3389"
 
-fi
-
-if _step; then
 # -------------------------------------------------------------
 # 20. Montage partages muxnas (CIFS/SMB)
 # -------------------------------------------------------------
@@ -1140,7 +1129,10 @@ declare -A MUXNAS_SHARES=(
   ["XXX"]="XXX"
   ["Marie-XXX"]="Marie-XXX"
 )
-CIFS_OPTS="credentials=$HOME/.smbcredentials-muxnas,uid=$(id -u),gid=$(id -g),iocharset=utf8,file_mode=0664,dir_mode=0775,noserverino,_netdev,x-systemd.automount,noauto"
+# Pas de "noauto" : sinon l'unité automount générée par systemd n'est jamais
+# démarrée (ni au boot, ni via remote-fs.target) et l'accès au dossier ne
+# déclenche donc jamais le montage — juste _netdev,x-systemd.automount suffit.
+CIFS_OPTS="credentials=$HOME/.smbcredentials-muxnas,uid=$(id -u),gid=$(id -g),iocharset=utf8,file_mode=0664,dir_mode=0775,noserverino,_netdev,x-systemd.automount"
 
 mkdir -p "$MUXNAS_ROOT"
 for LOCAL in "${!MUXNAS_SHARES[@]}"; do
@@ -1148,10 +1140,12 @@ for LOCAL in "${!MUXNAS_SHARES[@]}"; do
   MNTPT="$MUXNAS_ROOT/$LOCAL"
   mkdir -p "$MNTPT"
   FSTAB_LINE="//muxnas/$SHARE $MNTPT cifs $CIFS_OPTS 0 0"
-  if ! grep -qF "//muxnas/$SHARE" /etc/fstab; then
-    echo "$FSTAB_LINE" | sudo tee -a /etc/fstab > /dev/null
-    echo "  ==> fstab : //muxnas/$SHARE → $MNTPT"
-  fi
+  # Supprime toute ancienne ligne pour ce partage (ex: point de montage
+  # différent si le script a déjà tourné sous un autre $HOME, comme root)
+  # avant de réécrire la ligne à jour.
+  sudo sed -i "\#^//muxnas/$SHARE #d" /etc/fstab
+  echo "$FSTAB_LINE" | sudo tee -a /etc/fstab > /dev/null
+  echo "  ==> fstab : //muxnas/$SHARE → $MNTPT"
 done
 
 # Résolution muxnas via /etc/hosts si pas de DNS local
@@ -1198,6 +1192,9 @@ case "$DE" in
     echo "   1. Gnome Tweaks → Appearance → Shell theme → 'Dracula'"
     echo "   2. Tilix : Préférences → Profil → Couleurs → schéma 'Dracula'"
     echo "   3. Extensions → activer dash-to-dock, blur-my-shell, user-themes, caffeine"
+    echo "   4. Battle.net (Hearthstone etc.) : dans Lutris, configurer le jeu pour"
+    echo "      utiliser le runner Wine 'Système (wine-staging)' au lieu de 'wine-ge-8-26'"
+    echo "      (wine-ge échoue la vérification de signature de l'Agent Battle.net)"
     ;;
 esac
 
@@ -1209,5 +1206,3 @@ echo "🎮 Gaming : Steam + Lutris installés. Proton-GE dans ~/.steam/root/comp
 echo "   Activer Proton-GE dans Steam : Paramètres → Compatibilité → outil de compatibilité"
 echo ""
 echo "💡 Ouvre un NOUVEAU terminal pour zsh + Starship + fastfetch."
-
-fi
