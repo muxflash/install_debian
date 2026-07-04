@@ -93,8 +93,12 @@ if lspci 2>/dev/null | grep -iq nvidia; then
     sudo update-grub
   fi
   if ! dpkg -l nvidia-driver &>/dev/null; then
-    echo "==> Installation des drivers NVIDIA (nvidia-driver + firmware)..."
-    sudo DEBIAN_FRONTEND=noninteractive apt install -y nvidia-driver firmware-misc-nonfree
+    echo "==> Installation des drivers NVIDIA..."
+    sudo DEBIAN_FRONTEND=noninteractive apt install -y nvidia-driver || \
+      { echo "  ==> nvidia-driver introuvable, essai via backports..."; \
+        sudo DEBIAN_FRONTEND=noninteractive apt install -y -t bookworm-backports nvidia-driver || \
+        echo "  ==> NVIDIA driver non installé — à faire manuellement"; }
+    sudo DEBIAN_FRONTEND=noninteractive apt install -y firmware-misc-nonfree 2>/dev/null || true
   else
     echo "==> Drivers NVIDIA déjà installés ($(nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null || echo '?')), skip."
   fi
