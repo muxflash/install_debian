@@ -385,8 +385,10 @@ EOF
 fi
 
 if ! command -v goose &>/dev/null; then
-  curl -fsSL https://github.com/block/goose/releases/latest/download/download_cli.sh | bash || \
-    { echo "  ==> Goose : installation échouée, skip."; true; }
+  curl -fsSL https://github.com/block/goose/releases/latest/download/download_cli.sh -o /tmp/goose-install.sh && \
+    printf 'n\nollama\n\n\n' | GOOSE_PROVIDER=ollama bash /tmp/goose-install.sh || \
+    echo "  ==> Goose : installation échouée, skip."
+  rm -f /tmp/goose-install.sh 2>/dev/null || true
 fi
 
 GOOSE_CONF="$HOME/.config/goose/config.yaml"
