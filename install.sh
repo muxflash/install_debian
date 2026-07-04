@@ -34,6 +34,14 @@ echo ""
 
 QWEN_MODEL="qwen3.6:35b"
 
+# ── Paramètre --from=N : reprendre à l'étape N (0-20) ───────────────────────
+_FROM=0
+for _a in "$@"; do case "$_a" in --from=*) _FROM="${_a#--from=}" ;; esac; done
+_FROM="${MUXPC_FROM:-$_FROM}"
+_S=-1
+# Retourne 0 (exécuter) ou 1 (skip), affiche un message si skip
+_step() { _S=$((_S+1)); [ "$_S" -ge "$_FROM" ] || { printf '  ⏭  étape %d ignorée (--from=%d)\n' "$_S" "$_FROM"; return 1; }; }
+
 if [ -n "${MUXPC_DE:-}" ]; then
   case "${MUXPC_DE}" in
     gnome) DE="gnome" ;;
@@ -63,6 +71,7 @@ fi
 
 echo ""
 
+if _step; then
 # -------------------------------------------------------------
 # 0. Dépôts non-free + drivers NVIDIA + GRUB
 # -------------------------------------------------------------
@@ -106,12 +115,18 @@ else
   echo "==> Pas de GPU NVIDIA détecté, skip drivers + GRUB param."
 fi
 
+fi
+
+if _step; then
 # -------------------------------------------------------------
 # 1. Mise à jour système
 # -------------------------------------------------------------
 echo "━━━ [1/15] Mise à jour système ━━━"
 sudo apt update && sudo apt upgrade -y
 
+fi
+
+if _step; then
 # -------------------------------------------------------------
 # 1. Paquets de base
 # -------------------------------------------------------------
@@ -146,6 +161,9 @@ if ! command -v fastfetch &>/dev/null; then
   fi
 fi
 
+fi
+
+if _step; then
 # -------------------------------------------------------------
 # 2. zsh + Oh My Zsh + plugins
 # -------------------------------------------------------------
@@ -222,6 +240,9 @@ command -v fastfetch &>/dev/null && fastfetch
 EOF
 fi
 
+fi
+
+if _step; then
 # -------------------------------------------------------------
 # 3. Police JetBrainsMono Nerd Font
 # -------------------------------------------------------------
@@ -236,6 +257,9 @@ if ! fc-list | grep -qi "JetBrainsMono Nerd Font"; then
   fc-cache -f "$FONT_DIR"
 fi
 
+fi
+
+if _step; then
 # -------------------------------------------------------------
 # 4. Starship prompt
 # -------------------------------------------------------------
@@ -249,6 +273,9 @@ fi
 grep -qxF 'eval "$(starship init zsh)"' "$ZSHRC" || \
   echo 'eval "$(starship init zsh)"' >> "$ZSHRC"
 
+fi
+
+if _step; then
 # -------------------------------------------------------------
 # 5. Thème terminal (Dracula)
 # -------------------------------------------------------------
@@ -291,6 +318,9 @@ case "$DE" in
     ;;
 esac
 
+fi
+
+if _step; then
 # -------------------------------------------------------------
 # 6. zoxide
 # -------------------------------------------------------------
@@ -300,6 +330,9 @@ if ! command -v zoxide &>/dev/null; then
     { echo "  ==> zoxide : installation échouée, skip."; true; }
 fi
 
+fi
+
+if _step; then
 # -------------------------------------------------------------
 # 7. Flatpak + ZapZap (WhatsApp) + Claude Code + Tailscale
 # -------------------------------------------------------------
@@ -413,6 +446,9 @@ else
   echo "==> open-interpreter skipped (relancer plus tard : uv tool install open-interpreter)"
 fi
 
+fi
+
+if _step; then
 # -------------------------------------------------------------
 # 8d. Playwright (screenshots headless)
 # -------------------------------------------------------------
@@ -423,6 +459,9 @@ if [ ! -d "$VENV" ]; then
   "$VENV/bin/playwright" install chromium
 fi
 
+fi
+
+if _step; then
 # -------------------------------------------------------------
 # 9. Claude Code settings (~/.claude/settings.json)
 # -------------------------------------------------------------
@@ -452,6 +491,9 @@ else
 EOF
 fi
 
+fi
+
+if _step; then
 # -------------------------------------------------------------
 # 10. Dossier wallpaper + image
 # -------------------------------------------------------------
@@ -463,6 +505,9 @@ if [ ! -f "$WALLPAPER_DIR/$WALLPAPER_IMAGE" ]; then
     echo "  ==> Wallpaper non trouvé — placer $WALLPAPER_IMAGE dans $WALLPAPER_DIR/ manuellement."
 fi
 
+fi
+
+if _step; then
 # -------------------------------------------------------------
 # 11. Git SSH + clone rancher
 # -------------------------------------------------------------
@@ -514,6 +559,9 @@ else
     echo "  ==> Clone rancher ignoré (clé SSH pas encore dans GitHub — à faire manuellement)"
 fi
 
+fi
+
+if _step; then
 # -------------------------------------------------------------
 # 12. Service systemd : Claude Code dans tmux au démarrage
 # -------------------------------------------------------------
@@ -557,6 +605,9 @@ Exec=${_term_exec}
 NoDisplay=true
 EOF
 
+fi
+
+if _step; then
 # -------------------------------------------------------------
 # 13. Fix veille NVIDIA + Wayland (NVreg_PreserveVideoMemoryAllocations)
 # -------------------------------------------------------------
@@ -581,6 +632,9 @@ else
   echo "==> Pas de GPU NVIDIA détecté, skip."
 fi
 
+fi
+
+if _step; then
 # -------------------------------------------------------------
 # 14. Configuration du bureau
 # -------------------------------------------------------------
@@ -764,6 +818,9 @@ SLIDEEOF
     ;;
 esac
 
+fi
+
+if _step; then
 # -------------------------------------------------------------
 # 15. Thunderbird — compte laurent@billot.net (mail.billot.net / Stalwart)
 # -------------------------------------------------------------
@@ -772,11 +829,11 @@ echo "━━━ [16/17] Thunderbird (laurent@billot.net) ━━━"
 sudo DEBIAN_FRONTEND=noninteractive apt install -y thunderbird
 
 # Profil Thunderbird : pré-configure IMAP + SMTP via autoconfig
-TB_PROFILE_DIR=$(find "$HOME/.thunderbird" -maxdepth 1 -name "*.default-release" 2>/dev/null | head -n1)
+TB_PROFILE_DIR=$(find "$HOME/.thunderbird" -maxdepth 1 -name "*.default-release" 2>/dev/null | head -n1 || true)
 if [ -z "${TB_PROFILE_DIR:-}" ]; then
   # Premier lancement silencieux pour créer le profil
-  timeout 5 thunderbird --headless 2>/dev/null || true
-  TB_PROFILE_DIR=$(find "$HOME/.thunderbird" -maxdepth 1 -name "*.default-release" 2>/dev/null | head -n1)
+  timeout 10 thunderbird --headless 2>/dev/null || true
+  TB_PROFILE_DIR=$(find "$HOME/.thunderbird" -maxdepth 1 -name "*.default-release" 2>/dev/null | head -n1 || true)
 fi
 
 if [ -n "${TB_PROFILE_DIR:-}" ]; then
@@ -816,6 +873,9 @@ TBPREFS
   fi
 fi
 
+fi
+
+if _step; then
 # -------------------------------------------------------------
 # 16. Lutris + Steam (gaming)
 # -------------------------------------------------------------
@@ -859,6 +919,9 @@ if [ -z "$(ls -A "$PROTON_GE_DIR" 2>/dev/null)" ]; then
   fi
 fi
 
+fi
+
+if _step; then
 # =============================================================
 echo ""
 echo "━━━ [18/17] Autostart session bureaux ━━━"
@@ -989,6 +1052,9 @@ DESKTOPEOF
 echo "  ==> Autostart configuré : ~/.config/autostart/muxpc-session.desktop"
 echo "  ==> Script : ~/.local/bin/muxpc-session.sh"
 
+fi
+
+if _step; then
 # =============================================================
 echo ""
 echo "━━━ [19/17] xRDP (prise en main à distance) ━━━"
@@ -1042,6 +1108,9 @@ echo "  ==> xRDP actif sur le port 3389"
 echo "  ==> Windows : mstsc /v:$(hostname -I | awk '{print $1}')"
 echo "  ==> Linux   : remmina ou rdesktop $(hostname -I | awk '{print $1}'):3389"
 
+fi
+
+if _step; then
 # -------------------------------------------------------------
 # 20. Montage partages muxnas (CIFS/SMB)
 # -------------------------------------------------------------
@@ -1140,3 +1209,5 @@ echo "🎮 Gaming : Steam + Lutris installés. Proton-GE dans ~/.steam/root/comp
 echo "   Activer Proton-GE dans Steam : Paramètres → Compatibilité → outil de compatibilité"
 echo ""
 echo "💡 Ouvre un NOUVEAU terminal pour zsh + Starship + fastfetch."
+
+fi
