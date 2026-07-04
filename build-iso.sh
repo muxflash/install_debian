@@ -35,6 +35,7 @@ cat > "$WORKDIR/iso/isolinux/txt.cfg" << 'EOF'
 default autoinstall
 label autoinstall
 	menu label ^Autoinstall muxGnome
+	menu default
 	kernel /install.amd/vmlinuz
 	append auto=true priority=critical vga=788 initrd=/install.amd/initrd.gz file=/cdrom/preseed.cfg --- quiet
 
@@ -42,6 +43,15 @@ label install
 	menu label ^Install (manuel)
 	kernel /install.amd/vmlinuz
 	append vga=788 initrd=/install.amd/initrd.gz --- quiet
+EOF
+
+# menu.cfg — uniquement stdmenu + txt (pas de gtk/spkgtk qui prennent la priorité)
+cat > "$WORKDIR/iso/isolinux/menu.cfg" << 'EOF'
+menu hshift 4
+menu width 70
+menu title Debian GNU/Linux installer menu (BIOS mode)
+include stdmenu.cfg
+include txt.cfg
 EOF
 sed -i 's/^timeout .*/timeout 30/' "$WORKDIR/iso/isolinux/isolinux.cfg"
 

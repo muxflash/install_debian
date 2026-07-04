@@ -8,7 +8,7 @@ set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
 # sudo strips env vars by default — prefix each sudo apt call explicitly too (see below)
 
-GITHUB_RAW="https://raw.githubusercontent.com/muxflash/rancher/muxpc/muxpc"
+GITHUB_RAW="https://raw.githubusercontent.com/muxflash/install_debian/main"
 WALLPAPER_IMAGE="wallpaperswide.com-assassins-creed-unity-arno-wallpaper-5120x1440.jpg"
 WALLPAPER_DIR="$HOME/Images/Wallpaper"
 CLAUDE_DIR="$HOME/claude"
