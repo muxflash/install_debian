@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 # Génère debian-12-muxgnome-autoinstall.iso depuis debian-12 netinst
-# Usage: bash build-iso.sh [DE=gnome|kde] [QWEN=y|n] [OI=y|n]
+# Usage: bash build-iso.sh [DE=gnome|kde] [QWEN=y|n] [OI=y|n] [GITHUB_TOKEN=ghp_xxx]
+# Le token n'est jamais commité — substitué uniquement dans l'ISO généré
 set -euo pipefail
 
 DE="${1:-gnome}"
 QWEN="${2:-n}"
 OI="${3:-y}"
+GITHUB_TOKEN="${4:-${GITHUB_TOKEN:-}}"
 DEBIAN_VER="12.14.0"
 ISO_URL="https://cdimage.debian.org/cdimage/archive/${DEBIAN_VER}/amd64/iso-cd/debian-${DEBIAN_VER}-amd64-netinst.iso"
 OUT_ISO="debian-12-muxgnome-autoinstall.iso"
@@ -29,6 +31,12 @@ cp "$(dirname "$0")/install.sh"  "$WORKDIR/iso/install.sh"
 sed -i "s/MUXPC_DE=gnome/MUXPC_DE=${DE}/" "$WORKDIR/iso/preseed.cfg"
 sed -i "s/MUXPC_QWEN=n/MUXPC_QWEN=${QWEN}/" "$WORKDIR/iso/preseed.cfg"
 sed -i "s/MUXPC_OI=y/MUXPC_OI=${OI}/" "$WORKDIR/iso/preseed.cfg"
+if [ -n "$GITHUB_TOKEN" ]; then
+  sed -i "s/PLACEHOLDER_GITHUB_TOKEN/${GITHUB_TOKEN}/" "$WORKDIR/iso/preseed.cfg"
+  echo "  ==> GitHub token injecté dans le preseed (non commité)"
+else
+  echo "  ==> Pas de GITHUB_TOKEN — clé SSH à ajouter manuellement après install"
+fi
 
 # BIOS (isolinux)
 cat > "$WORKDIR/iso/isolinux/txt.cfg" << 'EOF'

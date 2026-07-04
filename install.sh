@@ -386,7 +386,7 @@ fi
 
 if ! command -v goose &>/dev/null; then
   curl -fsSL https://github.com/block/goose/releases/latest/download/download_cli.sh -o /tmp/goose-install.sh && \
-    printf 'n\nollama\n\n\n' | GOOSE_PROVIDER=ollama bash /tmp/goose-install.sh || \
+    printf 'n\nollama\nhttp://localhost:11434\nn\nqwen3.6:35b\n\n\n' | GOOSE_PROVIDER=ollama GOOSE_MODEL=qwen3.6:35b bash /tmp/goose-install.sh || \
     echo "  ==> Goose : installation échouée, skip."
   rm -f /tmp/goose-install.sh 2>/dev/null || true
 fi
@@ -468,20 +468,37 @@ fi
 # -------------------------------------------------------------
 echo "━━━ [12/15] Git + clone rancher ━━━"
 mkdir -p "$HOME/.ssh"
+chmod 700 "$HOME/.ssh"
 if [ ! -f "$HOME/.ssh/id_ed25519" ] && [ ! -f "$HOME/.ssh/id_rsa" ]; then
-  ssh-keygen -t ed25519 -C "$(whoami)@$(hostname)" -f "$HOME/.ssh/id_ed25519" -N ""
-  echo ""
-  echo "🔑 Ajoute cette clé publique sur GitHub avant de continuer :"
-  echo "   https://github.com/settings/keys"
-  echo ""
-  cat "$HOME/.ssh/id_ed25519.pub"
-  echo ""
-  if [ -z "${MUXPC_DE:-}" ]; then
-    read -r -p "Appuie sur Entrée une fois la clé ajoutée... "
+  ssh-keygen -t ed25519 -C "muxflash@$(hostname)" -f "$HOME/.ssh/id_ed25519" -N ""
+fi
+
+# Upload automatique de la clé publique sur GitHub via API
+# GITHUB_TOKEN doit avoir le scope write:public_key
+# Passer via env : GITHUB_TOKEN=ghp_xxx bash install.sh
+GITHUB_TOKEN="${GITHUB_TOKEN:-}"
+PUBKEY_FILE="$HOME/.ssh/id_ed25519.pub"
+[ ! -f "$PUBKEY_FILE" ] && PUBKEY_FILE="$HOME/.ssh/id_rsa.pub"
+if [ -n "$GITHUB_TOKEN" ] && [ -f "$PUBKEY_FILE" ]; then
+  PUBKEY=$(cat "$PUBKEY_FILE")
+  KEY_TITLE="muxflash-$(hostname)-$(date +%Y%m%d)"
+  HTTP_CODE=$(curl -s -o /tmp/gh-key-response.json -w "%{http_code}" \
+    -X POST https://api.github.com/user/keys \
+    -H "Authorization: token $GITHUB_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d "{\"title\":\"$KEY_TITLE\",\"key\":\"$PUBKEY\"}")
+  if [ "$HTTP_CODE" = "201" ]; then
+    echo "  ==> Clé SSH ajoutée sur GitHub : $KEY_TITLE"
   else
-    echo "  ==> Mode non-interactif : ajoutez la clé GitHub ci-dessus manuellement, puis :"
-    echo "      git clone git@github.com:muxflash/rancher.git $REPO_DIR"
+    echo "  ==> GitHub API : HTTP $HTTP_CODE — $(cat /tmp/gh-key-response.json 2>/dev/null)"
+    echo "  ==> Clé à ajouter manuellement : https://github.com/settings/keys"
+    echo "  $PUBKEY"
   fi
+  rm -f /tmp/gh-key-response.json
+else
+  echo "  ==> GITHUB_TOKEN non défini — clé à ajouter manuellement :"
+  echo "      https://github.com/settings/keys"
+  [ -f "$PUBKEY_FILE" ] && echo "  $(cat "$PUBKEY_FILE")"
 fi
 
 grep -q "github.com" "$HOME/.ssh/known_hosts" 2>/dev/null || \
