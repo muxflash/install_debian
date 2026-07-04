@@ -1019,6 +1019,59 @@ echo "  ==> xRDP actif sur le port 3389"
 echo "  ==> Windows : mstsc /v:$(hostname -I | awk '{print $1}')"
 echo "  ==> Linux   : remmina ou rdesktop $(hostname -I | awk '{print $1}'):3389"
 
+# -------------------------------------------------------------
+# 20. Montage partages muxnas (CIFS/SMB)
+# -------------------------------------------------------------
+echo "━━━ [20/20] Partages muxnas (CIFS) ━━━"
+
+sudo DEBIAN_FRONTEND=noninteractive apt install -y cifs-utils keyutils
+
+MUXNAS_CRED="$HOME/.smbcredentials-muxnas"
+if [ ! -f "$MUXNAS_CRED" ]; then
+  printf 'username=laurent\npassword=y3wB!gq\ndomain=muxnas\n' > "$MUXNAS_CRED"
+  chmod 600 "$MUXNAS_CRED"
+  echo "  ==> Credentials créés : $MUXNAS_CRED"
+fi
+
+MUXNAS_ROOT="$HOME/muxnas"
+declare -A MUXNAS_SHARES=(
+  ["Seedbox"]="Seedbox_muxflash"
+  ["Jeux-Video"]="Jeux-Video"
+  ["Sync"]="Sync_muxflash"
+  ["Ebook"]="Ebook"
+  ["Video"]="Video"
+  ["Son"]="Son"
+  ["Utilitaire"]="Utilitaire"
+  ["Document"]="Document"
+  ["Photo"]="Photo"
+  ["Public"]="Public"
+  ["XXX"]="XXX"
+  ["Marie-XXX"]="Marie-XXX"
+)
+CIFS_OPTS="credentials=$HOME/.smbcredentials-muxnas,uid=$(id -u),gid=$(id -g),iocharset=utf8,file_mode=0664,dir_mode=0775,noserverino,_netdev,x-systemd.automount,noauto"
+
+mkdir -p "$MUXNAS_ROOT"
+for LOCAL in "${!MUXNAS_SHARES[@]}"; do
+  SHARE="${MUXNAS_SHARES[$LOCAL]}"
+  MNTPT="$MUXNAS_ROOT/$LOCAL"
+  mkdir -p "$MNTPT"
+  FSTAB_LINE="//muxnas/$SHARE $MNTPT cifs $CIFS_OPTS 0 0"
+  if ! grep -qF "//muxnas/$SHARE" /etc/fstab; then
+    echo "$FSTAB_LINE" | sudo tee -a /etc/fstab > /dev/null
+    echo "  ==> fstab : //muxnas/$SHARE → $MNTPT"
+  fi
+done
+
+# Résolution muxnas via /etc/hosts si pas de DNS local
+if ! grep -q "muxnas" /etc/hosts; then
+  echo "192.168.0.14  muxnas" | sudo tee -a /etc/hosts > /dev/null
+  echo "  ==> /etc/hosts : muxnas → 192.168.0.14"
+fi
+
+sudo systemctl daemon-reload
+echo "  ==> Partages montés à la demande dans ~/muxnas/"
+echo "  ==> Premier accès : ls ~/muxnas/Video  (déclenche l'automount)"
+
 # =============================================================
 echo ""
 echo "╔══════════════════════════════════════════════════════════╗"
