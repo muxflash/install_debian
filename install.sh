@@ -94,7 +94,7 @@ if lspci 2>/dev/null | grep -iq nvidia; then
   fi
   if ! dpkg -l nvidia-driver &>/dev/null; then
     echo "==> Installation des drivers NVIDIA (nvidia-driver + firmware)..."
-    sudo DEBIAN_FRONTEND=noninteractive apt install -y nvidia-driver firmware-nvidia-graphics
+    sudo DEBIAN_FRONTEND=noninteractive apt install -y nvidia-driver firmware-misc-nonfree
   else
     echo "==> Drivers NVIDIA déjà installés ($(nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null || echo '?')), skip."
   fi
