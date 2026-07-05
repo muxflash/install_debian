@@ -8,7 +8,7 @@
 # Exemples :
 #   bash muxpc/deploy.sh 201
 #   bash muxpc/deploy.sh 201 muxGnome
-#   bash muxpc/deploy.sh 201 muxGnome muxflash axlmux
+#   bash muxpc/deploy.sh 201 muxGnome muxflash <mot-de-passe>
 #
 # Variables d'env (priorité sur les args) :
 #   VM_HOSTNAME, VM_USER, VM_PASS, MUXPC_DE, MEMORY, CORES
@@ -23,7 +23,12 @@ HEADSCALE_USER_ID="${HEADSCALE_USER_ID:-1}"
 VMID_NEW="${1:-${VMID_NEW:-201}}"
 VM_HOSTNAME="${2:-${VM_HOSTNAME:-muxGnome}}"
 VM_USER="${3:-${VM_USER:-muxflash}}"
-VM_PASS="${4:-${VM_PASS:-axlmux}}"
+VM_PASS="${4:-${VM_PASS:-}}"
+# Pas de mot de passe fixe committé : on en génère un aléatoire si aucun n'est fourni.
+if [ -z "$VM_PASS" ]; then
+  VM_PASS="$(openssl rand -base64 12)"
+  echo "  ==> VM_PASS non fourni, mot de passe généré : $VM_PASS  (à noter avant de continuer)"
+fi
 VM_NAME="$VM_HOSTNAME"
 MUXPC_DE="${MUXPC_DE:-gnome}"
 MUXPC_QWEN="${MUXPC_QWEN:-n}"

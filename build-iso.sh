@@ -1,13 +1,17 @@
 #!/usr/bin/env bash
 # Génère debian-12-muxgnome-autoinstall.iso depuis debian-12 netinst
-# Usage: bash build-iso.sh [DE=gnome|kde] [QWEN=y|n] [OI=y|n] [GITHUB_TOKEN=ghp_xxx]
-# Le token n'est jamais commité — substitué uniquement dans l'ISO généré
+# Usage: bash build-iso.sh [DE=gnome|kde] [QWEN=y|n] [OI=y|n] [GITHUB_TOKEN=ghp_xxx] [PASSWORD=xxx]
+# Le token et le mot de passe ne sont jamais committés — substitués uniquement dans l'ISO générée
 set -euo pipefail
 
 DE="${1:-gnome}"
 QWEN="${2:-n}"
 OI="${3:-y}"
 GITHUB_TOKEN="${4:-${GITHUB_TOKEN:-}}"
+PASSWORD="${5:-${PASSWORD:-}}"
+if [ -z "$PASSWORD" ]; then
+  PASSWORD="$(openssl rand -base64 12)"
+fi
 DEBIAN_VER="12.14.0"
 ISO_URL="https://cdimage.debian.org/cdimage/archive/${DEBIAN_VER}/amd64/iso-cd/debian-${DEBIAN_VER}-amd64-netinst.iso"
 OUT_ISO="debian-12-muxgnome-autoinstall.iso"
@@ -37,6 +41,9 @@ if [ -n "$GITHUB_TOKEN" ]; then
 else
   echo "  ==> Pas de GITHUB_TOKEN — clé SSH à ajouter manuellement après install"
 fi
+
+sed -i "s/PLACEHOLDER_USER_PASSWORD/${PASSWORD}/" "$WORKDIR/iso/preseed.cfg"
+echo "  ==> Mot de passe utilisateur muxflash : $PASSWORD  (à noter avant de graver l'ISO)"
 
 # BIOS (isolinux)
 cat > "$WORKDIR/iso/isolinux/txt.cfg" << 'EOF'

@@ -20,10 +20,10 @@ GITHUB_TOKEN="${GITHUB_TOKEN:-}"
 VENV="$HOME/.venv-tools"
 ZSHRC="$HOME/.zshrc"
 
-# Headscale auth key — RÉGÉNÉRER si expiré :
+# Headscale auth key — aucune valeur par défaut committée (secret) :
 # https://vpn.billot.net:8090 → New auth key (expiry 24h suffit)
 # Passer via env : TAILSCALE_AUTHKEY=hskey-auth-xxx bash install.sh
-TAILSCALE_AUTHKEY="${TAILSCALE_AUTHKEY:-hskey-auth-yZlhjwxvQmB1-d8SDKReUiK9niHhoaqCs2QR18nOjwAB-mSS0P_vcXSd07vKk0gdOUF4rQ_xmo9sZ}"
+TAILSCALE_AUTHKEY="${TAILSCALE_AUTHKEY:-}"
 TAILSCALE_SERVER="https://vpn.billot.net:8090"
 
 echo ""
@@ -326,7 +326,11 @@ fi
 
 sudo systemctl enable --now tailscaled
 
-if tailscale status 2>&1 | grep -q "Logged out" || ! tailscale status &>/dev/null; then
+if [ -z "$TAILSCALE_AUTHKEY" ]; then
+  echo "  ==> TAILSCALE_AUTHKEY non fournie, connexion Tailscale ignorée."
+  echo "      Générer une clé : $TAILSCALE_SERVER → New auth key, puis :"
+  echo "      sudo tailscale up --login-server=$TAILSCALE_SERVER --authkey=<clé> --hostname=$(hostname)"
+elif tailscale status 2>&1 | grep -q "Logged out" || ! tailscale status &>/dev/null; then
   sudo tailscale up \
     --login-server="$TAILSCALE_SERVER" \
     --authkey="$TAILSCALE_AUTHKEY" \
@@ -1108,10 +1112,20 @@ echo "━━━ [20/20] Partages muxnas (CIFS) ━━━"
 sudo DEBIAN_FRONTEND=noninteractive apt install -y cifs-utils keyutils
 
 MUXNAS_CRED="$HOME/.smbcredentials-muxnas"
+MUXNAS_USER="${MUXNAS_USER:-laurent}"
+MUXNAS_PASSWORD="${MUXNAS_PASSWORD:-}"
 if [ ! -f "$MUXNAS_CRED" ]; then
-  printf 'username=laurent\npassword=y3wB!gq\ndomain=muxnas\n' > "$MUXNAS_CRED"
-  chmod 600 "$MUXNAS_CRED"
-  echo "  ==> Credentials créés : $MUXNAS_CRED"
+  if [ -z "$MUXNAS_PASSWORD" ] && [ -z "${MUXPC_DE:-}" ]; then
+    read -rs -p "==> Mot de passe SMB muxnas pour l'utilisateur '$MUXNAS_USER' (Entrée pour ignorer) : " MUXNAS_PASSWORD
+    echo ""
+  fi
+  if [ -n "$MUXNAS_PASSWORD" ]; then
+    printf 'username=%s\npassword=%s\ndomain=muxnas\n' "$MUXNAS_USER" "$MUXNAS_PASSWORD" > "$MUXNAS_CRED"
+    chmod 600 "$MUXNAS_CRED"
+    echo "  ==> Credentials créés : $MUXNAS_CRED"
+  else
+    echo "  ==> MUXNAS_PASSWORD non fournie — partages muxnas ignorés (relancer avec MUXNAS_PASSWORD=... pour les activer)."
+  fi
 fi
 
 MUXNAS_ROOT="$HOME/muxnas"

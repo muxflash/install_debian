@@ -15,7 +15,13 @@ VMID_NEW="${VMID_NEW:-201}"
 VM_NAME="${VM_NAME:-muxGnome}"
 VM_HOSTNAME="${VM_HOSTNAME:-${VM_NAME}}"
 VM_USER="${VM_USER:-muxflash}"
-VM_PASS="${VM_PASS:-axlmux}"
+VM_PASS="${VM_PASS:-}"
+# Pas de mot de passe fixe committé : on en génère un aléatoire si aucun n'est fourni
+# (deploy.sh en génère déjà un et le transmet via VM_PASS avant d'arriver ici).
+if [ -z "$VM_PASS" ]; then
+  VM_PASS="$(openssl rand -base64 12)"
+  echo "  ==> VM_PASS non fourni, mot de passe généré : $VM_PASS  (à noter avant de continuer)"
+fi
 STORAGE="${STORAGE:-NVME-STORAGE}"
 SNIPPETS_STORAGE="${SNIPPETS_STORAGE:-local}"
 MEMORY="${MEMORY:-4096}"
