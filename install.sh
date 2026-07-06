@@ -44,7 +44,8 @@ if [ -n "${MUXPC_DE:-}" ]; then
   esac
   _install_qwen="${MUXPC_QWEN:-n}"
   _install_oi="${MUXPC_OI:-n}"
-  echo "==> Mode non-interactif : DE=$DE qwen=$_install_qwen open-interpreter=$_install_oi"
+  _install_flux="${MUXPC_FLUX:-n}"
+  echo "==> Mode non-interactif : DE=$DE qwen=$_install_qwen open-interpreter=$_install_oi flux=$_install_flux"
 else
   echo "Environnement de bureau :"
   echo "  1) KDE Plasma  (défaut)"
@@ -62,6 +63,8 @@ else
   fi
   _install_oi="n"
   read -rp "==> Installer open-interpreter ? [y/N] " _install_oi
+  _install_flux="n"
+  read -rp "==> Installer ComfyUI + FLUX.2 (génération d'images IA, RTX requis, ~15 Go) ? [y/N] " _install_flux
 fi
 
 echo ""
@@ -1104,6 +1107,100 @@ echo "  ==> xRDP actif sur le port 3389"
 echo "  ==> Windows : mstsc /v:$(hostname -I | awk '{print $1}')"
 echo "  ==> Linux   : remmina ou rdesktop $(hostname -I | awk '{print $1}'):3389"
 
+# -------------------------------------------------------------
+# 21. ComfyUI + FLUX.2 (génération d'images IA)
+# -------------------------------------------------------------
+echo "━━━ [21/21] ComfyUI + FLUX.2-klein-9B ━━━"
+
+if [[ "${_install_flux:-n}" =~ ^[Yy]$ ]]; then
+  COMFY_DIR="$HOME/ComfyUI"
+  COMFY_VENV="$COMFY_DIR/venv"
+
+  # Dépendances
+  sudo DEBIAN_FRONTEND=noninteractive apt install -y git python3-venv libgl1 libglib2.0-0 wget aria2
+
+  # Clone ComfyUI
+  if [ ! -d "$COMFY_DIR" ]; then
+    git clone https://github.com/comfyanonymous/ComfyUI.git "$COMFY_DIR"
+  else
+    git -C "$COMFY_DIR" pull --ff-only
+  fi
+
+  # Venv + PyTorch CUDA
+  [ ! -d "$COMFY_VENV" ] && python3 -m venv "$COMFY_VENV"
+  "$COMFY_VENV/bin/pip" install --upgrade pip -q
+  "$COMFY_VENV/bin/pip" install torch torchvision torchaudio \
+    --index-url https://download.pytorch.org/whl/cu124 -q
+  "$COMFY_VENV/bin/pip" install -r "$COMFY_DIR/requirements.txt" -q
+
+  # Custom nodes
+  mkdir -p "$COMFY_DIR/custom_nodes"
+  [ ! -d "$COMFY_DIR/custom_nodes/ComfyUI-Manager" ] && \
+    git clone https://github.com/ltdrdata/ComfyUI-Manager.git "$COMFY_DIR/custom_nodes/ComfyUI-Manager"
+  if [ ! -d "$COMFY_DIR/custom_nodes/ComfyUI-GGUF" ]; then
+    git clone https://github.com/city96/ComfyUI-GGUF.git "$COMFY_DIR/custom_nodes/ComfyUI-GGUF"
+    "$COMFY_VENV/bin/pip" install -r "$COMFY_DIR/custom_nodes/ComfyUI-GGUF/requirements.txt" -q 2>/dev/null || true
+  fi
+
+  # Modèles
+  mkdir -p "$COMFY_DIR/models/unet" "$COMFY_DIR/models/clip" "$COMFY_DIR/models/vae"
+
+  # FLUX.2-klein-9B Q8 (~9.5 Go)
+  FLUX_UNET="$COMFY_DIR/models/unet/flux-2-klein-9b-Q8_0.gguf"
+  [ ! -f "$FLUX_UNET" ] || [ ! -s "$FLUX_UNET" ] && \
+    wget -q --show-progress -O "$FLUX_UNET" \
+      "https://huggingface.co/unsloth/FLUX.2-klein-9B-GGUF/resolve/main/flux-2-klein-9b-Q8_0.gguf"
+
+  # CLIP-L (~235 Mo)
+  CLIP_L="$COMFY_DIR/models/clip/clip_l.safetensors"
+  [ ! -f "$CLIP_L" ] || [ ! -s "$CLIP_L" ] && \
+    wget -q --show-progress -O "$CLIP_L" \
+      "https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/clip_l.safetensors"
+
+  # T5-XXL fp8 (~4.7 Go)
+  T5="$COMFY_DIR/models/clip/t5xxl_fp8_e4m3fn.safetensors"
+  [ ! -f "$T5" ] || [ ! -s "$T5" ] && \
+    wget -q --show-progress -O "$T5" \
+      "https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/t5xxl_fp8_e4m3fn.safetensors"
+
+  # VAE FLUX (~160 Mo, OpenFLUX Apache 2.0)
+  VAE="$COMFY_DIR/models/vae/ae.safetensors"
+  [ ! -f "$VAE" ] || [ ! -s "$VAE" ] && \
+    wget -q --show-progress -O "$VAE" \
+      "https://huggingface.co/ostris/OpenFLUX.1/resolve/main/vae/diffusion_pytorch_model.safetensors"
+
+  # Service systemd
+  sudo tee /etc/systemd/system/comfyui.service > /dev/null << SVCEOF
+[Unit]
+Description=ComfyUI — génération d'images IA (FLUX.2)
+After=network.target
+
+[Service]
+Type=simple
+User=$USER
+WorkingDirectory=$COMFY_DIR
+ExecStart=$COMFY_VENV/bin/python main.py --listen 0.0.0.0 --port 8188
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+SVCEOF
+
+  sudo systemctl daemon-reload
+  sudo systemctl enable --now comfyui
+  echo "  ==> ComfyUI démarré sur http://$(hostname -I | awk '{print \$1}'):8188"
+  echo "  ==> Modèle : FLUX.2-klein-9B Q8 (RTX 3090, ~10 Go VRAM)"
+  echo "  ==> Logs : journalctl -u comfyui -f"
+else
+  echo "==> ComfyUI skipped (relancer plus tard : MUXPC_FLUX=y bash install.sh --from=21)"
+fi
+
+fi
+
+if _step; then
 # -------------------------------------------------------------
 # 20. Montage partages muxnas (CIFS/SMB)
 # -------------------------------------------------------------
