@@ -64,7 +64,7 @@ else
   _install_oi="n"
   read -rp "==> Installer open-interpreter ? [y/N] " _install_oi
   _install_flux="n"
-  read -rp "==> Installer ComfyUI + FLUX.2 (génération d'images IA, RTX requis, ~15 Go) ? [y/N] " _install_flux
+  read -rp "==> Installer ComfyUI + FLUX.1-schnell (génération d'images IA, RTX requis, ~17 Go) ? [y/N] " _install_flux
 fi
 
 echo ""
@@ -1108,9 +1108,9 @@ echo "  ==> Windows : mstsc /v:$(hostname -I | awk '{print $1}')"
 echo "  ==> Linux   : remmina ou rdesktop $(hostname -I | awk '{print $1}'):3389"
 
 # -------------------------------------------------------------
-# 21. ComfyUI + FLUX.2 (génération d'images IA)
+# 21. ComfyUI + FLUX.1-schnell (génération d'images IA)
 # -------------------------------------------------------------
-echo "━━━ [21/21] ComfyUI + FLUX.2-klein-9B ━━━"
+echo "━━━ [21/21] ComfyUI + FLUX.1-schnell ━━━"
 
 if [[ "${_install_flux:-n}" =~ ^[Yy]$ ]]; then
   COMFY_DIR="$HOME/ComfyUI"
@@ -1145,11 +1145,12 @@ if [[ "${_install_flux:-n}" =~ ^[Yy]$ ]]; then
   # Modèles
   mkdir -p "$COMFY_DIR/models/unet" "$COMFY_DIR/models/clip" "$COMFY_DIR/models/vae"
 
-  # FLUX.2-klein-9B Q8 (~9.5 Go)
-  FLUX_UNET="$COMFY_DIR/models/unet/flux-2-klein-9b-Q8_0.gguf"
+  # FLUX.1-schnell Q8 (~17 Go) — compatible T5-XXL + CLIP-L, Apache 2.0
+  # (FLUX.2-klein requiert un encodeur Qwen3 8B spécifique, non supporté ici)
+  FLUX_UNET="$COMFY_DIR/models/unet/flux1-schnell-Q8_0.gguf"
   [ ! -f "$FLUX_UNET" ] || [ ! -s "$FLUX_UNET" ] && \
     wget -q --show-progress -O "$FLUX_UNET" \
-      "https://huggingface.co/unsloth/FLUX.2-klein-9B-GGUF/resolve/main/flux-2-klein-9b-Q8_0.gguf"
+      "https://huggingface.co/city96/FLUX.1-schnell-gguf/resolve/main/flux1-schnell-Q8_0.gguf"
 
   # CLIP-L (~235 Mo)
   CLIP_L="$COMFY_DIR/models/clip/clip_l.safetensors"
@@ -1172,7 +1173,7 @@ if [[ "${_install_flux:-n}" =~ ^[Yy]$ ]]; then
   # Service systemd
   sudo tee /etc/systemd/system/comfyui.service > /dev/null << SVCEOF
 [Unit]
-Description=ComfyUI — génération d'images IA (FLUX.2)
+Description=ComfyUI — génération d'images IA (FLUX.1-schnell)
 After=network.target
 
 [Service]
@@ -1192,7 +1193,7 @@ SVCEOF
   sudo systemctl daemon-reload
   sudo systemctl enable --now comfyui
   echo "  ==> ComfyUI démarré sur http://$(hostname -I | awk '{print \$1}'):8188"
-  echo "  ==> Modèle : FLUX.2-klein-9B Q8 (RTX 3090, ~10 Go VRAM)"
+  echo "  ==> Modèle : FLUX.1-schnell Q8 (RTX 3090, ~17 Go VRAM)"
   echo "  ==> Logs : journalctl -u comfyui -f"
 else
   echo "==> ComfyUI skipped (relancer plus tard : MUXPC_FLUX=y bash install.sh --from=21)"
